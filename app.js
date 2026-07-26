@@ -75,7 +75,7 @@ const DAY_COLORS = ['#4c8dff', '#35d0a5', '#f7b955', '#ff6b8b', '#b06bff', '#37c
 const ui = {
   dayId: state.days[0].id,
   locked: localStorage.getItem('dctrip.locked') === '1',   // mapa fijo: no se reencuadra solo
-  searchTarget: null,   // 'stop' | 'start' | 'end'
+  searchTarget: null,   // 'stop' | 'start' | 'end' | 'star'
   editingStopId: null,
   pickOnMap: false,
   undo: null,
@@ -312,19 +312,19 @@ function renderTabs() {
   tabs.innerHTML = '';
 
   const all = document.createElement('button');
+  all.type = 'button';
   all.className = 'day-tab all' + (isAll() ? ' active' : '');
   all.innerHTML = `<b>Todo</b><small>${state.days.length} días</small>`;
   all.onclick = () => { ui.dayId = ALL; render(true); };
   tabs.appendChild(all);
 
   const stars = starredPlaces();
-  if (stars.length) {
-    const st = document.createElement('button');
-    st.className = 'day-tab all star-tab' + (isStars() ? ' active' : '');
-    st.innerHTML = `<b>⭐ Top</b><small>${stars.length} sitios</small>`;
-    st.onclick = () => { ui.dayId = STARS; render(true); };
-    tabs.appendChild(st);
-  }
+  const st = document.createElement('button');
+  st.type = 'button';
+  st.className = 'day-tab all star-tab' + (isStars() ? ' active' : '');
+  st.innerHTML = `<b>⭐ Top</b><small>${stars.length ? stars.length + ' sitios' : 'vacío'}</small>`;
+  st.onclick = () => { ui.dayId = STARS; render(true); };
+  tabs.appendChild(st);
 
   state.days.forEach((d, i) => {
     const f = fmtDate(d.date);
@@ -459,6 +459,7 @@ let renderToken = 0;
 async function render(fitMap = false) {
   renderTabs();
   $('#sheet').classList.toggle('overview', isSpecial());
+  $('#sheet').classList.toggle('stars-view', isStars());
   if (isStars()) return renderStars(fitMap);
   if (isAll()) return renderOverview(fitMap);
 
@@ -520,7 +521,7 @@ function renderStars(fitMap) {
   if (!stars.length) {
     const hint = document.createElement('li');
     hint.className = 'empty-hint';
-    hint.textContent = 'Marca paradas como "Lugar principal" desde su editor y aparecerán aquí.';
+    hint.textContent = 'Todavía no hay lugares en Top. Agrega uno con el botón de abajo.';
     list.appendChild(hint);
   }
 
@@ -914,7 +915,23 @@ function openSearch(target) {
   ui.searchTarget = target;
   $('#searchTitle').textContent = target === 'start' ? 'Inicio del día'
                                 : target === 'end' ? 'Dónde duermo esta noche'
+                                : target === 'star' ? 'Agregar a Top'
                                 : 'Agregar parada';
+  const dayWrap = $('#searchDayWrap');
+  if (target === 'star') {
+    const sel = $('#searchDay');
+    sel.innerHTML = '';
+    state.days.forEach((dd, i) => {
+      const f = fmtDate(dd.date);
+      const o = document.createElement('option');
+      o.value = dd.id;
+      o.textContent = `Día ${i + 1} · ${f.dow} ${f.short}`;
+      sel.appendChild(o);
+    });
+    dayWrap.hidden = false;
+  } else {
+    dayWrap.hidden = true;
+  }
   $('#searchInput').value = '';
   $('#searchResults').innerHTML = '';
   openModal('searchModal');
@@ -946,10 +963,17 @@ function runSearch(q) {
 }
 
 function acceptPlace(p) {
-  const d = day();
-  if (ui.searchTarget === 'start') d.start = p;
-  else if (ui.searchTarget === 'end') d.end = p;
-  else d.stops.push(p);
+  if (ui.searchTarget === 'star') {
+    p.star = true;
+    const targetId = $('#searchDay').value;
+    const d = state.days.find(x => x.id === targetId) || state.days[0];
+    d.stops.push(p);
+  } else {
+    const d = day();
+    if (ui.searchTarget === 'start') d.start = p;
+    else if (ui.searchTarget === 'end') d.end = p;
+    else d.stops.push(p);
+  }
   save();
   closeModal('searchModal');
   render(true);
@@ -1080,6 +1104,7 @@ function importJSON(file) {
 // ───────────────────────────────────────── Eventos
 $('#startTime').onchange = (e) => { day().startTime = e.target.value; save(); renderDay(false); };
 $('#btnAddStop').onclick = () => openSearch('stop');
+$('#btnAddStar').onclick = () => openSearch('star');
 $('#btnOptimize').onclick = optimizeDay;
 $('#btnUndo').onclick = () => {
   if (!ui.undo) return;

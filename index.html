@@ -63,6 +63,7 @@
       <ol id="itinerary" class="itinerary"></ol>
 
       <button id="btnAddStop" class="btn btn-primary btn-block">＋ Agregar parada</button>
+      <button id="btnAddStar" class="btn btn-primary btn-block">＋ Agregar a Top</button>
 
       <div class="offline-note" id="offlineNote" hidden>
         Sin conexión: se muestran las rutas ya calculadas.
@@ -77,6 +78,10 @@
     <div class="modal-head">
       <h3 id="searchTitle">Agregar parada</h3>
       <button class="icon-btn" data-close-modal="searchModal" aria-label="Cerrar">✕</button>
+    </div>
+    <div id="searchDayWrap" hidden>
+      <label class="lbl" for="searchDay">Agregar al día</label>
+      <select id="searchDay"></select>
     </div>
     <input type="search" id="searchInput" placeholder="Buscar en Washington…" autocomplete="off" autocorrect="off" spellcheck="false">
     <p id="searchHint" class="muted small">Escribe al menos 3 letras: parque, cascada, playa, hotel, gasolinera…</p>
