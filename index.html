@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<title>DC Trip</title>
+<meta name="description" content="Planificador de ruta para Washington DC">
+<meta name="theme-color" content="#0f172a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="DC Trip">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="vendor/leaflet.css">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div id="app">
+
+  <header id="topbar">
+    <div class="brand">
+      <span class="brand-mark">DC</span>
+      <div class="brand-text">
+        <strong id="tripTitle">DC Trip</strong>
+        <span id="tripDates">5 – 10 de agosto</span>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <button id="btnFit" class="icon-btn" title="Centrar en el día" aria-label="Centrar mapa">⤢</button>
+      <button id="btnMenu" class="icon-btn" title="Ajustes" aria-label="Ajustes">⋯</button>
+    </div>
+  </header>
+
+  <nav id="dayTabs" aria-label="Días del viaje"></nav>
+
+  <div id="map"></div>
+
+  <section id="sheet" class="sheet" aria-label="Itinerario del día">
+    <div id="sheetHandle" class="sheet-handle"><span></span></div>
+
+    <div class="sheet-head">
+      <div>
+        <h2 id="dayTitle">Día</h2>
+        <p id="daySummary" class="muted">—</p>
+      </div>
+      <div class="head-actions">
+        <button id="btnOptimize" class="btn btn-ghost" title="Reordenar para minimizar tiempo en coche">Optimizar</button>
+        <button id="btnUndo" class="btn btn-ghost" hidden>Deshacer</button>
+      </div>
+    </div>
+
+    <div class="sheet-scroll" id="sheetScroll">
+
+      <div class="field-row">
+        <label for="startTime">Salida</label>
+        <input type="time" id="startTime" value="09:00">
+        <span id="endTimeLabel" class="muted small">—</span>
+      </div>
+
+      <ol id="itinerary" class="itinerary"></ol>
+
+      <button id="btnAddStop" class="btn btn-primary btn-block">＋ Agregar parada</button>
+
+      <div class="offline-note" id="offlineNote" hidden>
+        Sin conexión: se muestran las rutas ya calculadas.
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ══ Buscador de lugares ══ -->
+<div id="searchModal" class="modal" hidden>
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3 id="searchTitle">Agregar parada</h3>
+      <button class="icon-btn" data-close-modal="searchModal" aria-label="Cerrar">✕</button>
+    </div>
+    <input type="search" id="searchInput" placeholder="Buscar en Washington DC…" autocomplete="off" autocorrect="off" spellcheck="false">
+    <p id="searchHint" class="muted small">Escribe al menos 3 letras: museo, monumento, hotel, restaurante…</p>
+    <ul id="searchResults" class="results"></ul>
+  </div>
+</div>
+
+<!-- ══ Editor de parada ══ -->
+<div id="stopModal" class="modal" hidden>
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3 id="stopModalTitle">Parada</h3>
+      <button class="icon-btn" data-close-modal="stopModal" aria-label="Cerrar">✕</button>
+    </div>
+    <label class="lbl" for="stopName">Nombre</label>
+    <input type="text" id="stopName">
+    <label class="lbl" for="stopDuration">Tiempo de visita (minutos)</label>
+    <input type="number" id="stopDuration" min="0" step="15" value="60">
+    <label class="lbl" for="stopNotes">Notas</label>
+    <textarea id="stopNotes" rows="2" placeholder="Entradas, horarios, recordatorios…"></textarea>
+    <label class="lbl" for="stopMoveDay">Mover a otro día</label>
+    <select id="stopMoveDay"></select>
+    <div class="modal-foot">
+      <button id="btnDeleteStop" class="btn btn-danger">Eliminar</button>
+      <button id="btnSaveStop" class="btn btn-primary">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Ajustes ══ -->
+<div id="menuModal" class="modal" hidden>
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3>Ajustes</h3>
+      <button class="icon-btn" data-close-modal="menuModal" aria-label="Cerrar">✕</button>
+    </div>
+    <label class="lbl" for="tripNameInput">Nombre del viaje</label>
+    <input type="text" id="tripNameInput">
+    <div class="menu-list">
+      <button id="btnExport" class="btn btn-ghost btn-block">⬇︎ Exportar itinerario (JSON)</button>
+      <button id="btnImport" class="btn btn-ghost btn-block">⬆︎ Importar itinerario</button>
+      <input type="file" id="importFile" accept="application/json,.json" hidden>
+      <button id="btnAddDay" class="btn btn-ghost btn-block">＋ Agregar un día</button>
+      <button id="btnDeleteDay" class="btn btn-ghost btn-block">🗑 Eliminar el día actual</button>
+      <button id="btnReset" class="btn btn-danger btn-block">Borrar todo y empezar de cero</button>
+    </div>
+    <p class="muted small">Los datos viven solo en este navegador. Usa exportar/importar para pasarlos entre la compu y el teléfono.</p>
+  </div>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="vendor/leaflet.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
