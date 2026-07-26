@@ -186,6 +186,7 @@ function toPlace(r) {
     lat: parseFloat(r.lat), lon: parseFloat(r.lon),
     duration: 60,
     notes: '',
+    star: false,
   };
 }
 
@@ -227,7 +228,8 @@ function drawMap(seq, route, fit) {
   let n = 0;
   seq.forEach(node => {
     const label = node.kind === 'start' ? 'A' : node.kind === 'end' ? '🛏' : String(++n);
-    L.marker([node.place.lat, node.place.lon], { icon: pinIcon(label, node.kind) })
+    const kind = node.kind + (node.kind === 'stop' && node.place.star ? ' star' : '');
+    L.marker([node.place.lat, node.place.lon], { icon: pinIcon(label, kind) })
       .bindPopup(`<b>${escapeHtml(node.place.name)}</b><br><span style="color:#667">${escapeHtml(node.place.address || '')}</span>`)
       .addTo(layer);
   });
@@ -388,9 +390,9 @@ function stopRow(node, d) {
   li.dataset.id = s.id;
   const n = d.stops.indexOf(s) + 1;
   li.innerHTML = `
-    <div class="idx">${n}</div>
+    <div class="idx${s.star ? ' star' : ''}">${n}</div>
     <div class="body">
-      <div class="name">${escapeHtml(s.name)}</div>
+      <div class="name">${s.star ? '⭐ ' : ''}${escapeHtml(s.name)}</div>
       <div class="meta">${s.duration || 0} min${s.address ? ' · ' + escapeHtml(s.address) : ''}${s.notes ? ' · 📝' : ''}</div>
     </div>
     <div class="time">${node.arrive != null ? fmtClock(node.arrive) : ''}</div>
@@ -630,6 +632,7 @@ function openStopEditor(id) {
   $('#stopModalTitle').textContent = s.name;
   $('#stopName').value = s.name;
   $('#stopDuration').value = s.duration ?? 60;
+  $('#stopStar').checked = !!s.star;
   $('#stopNotes').value = s.notes || '';
   const sel = $('#stopMoveDay');
   sel.innerHTML = '';
@@ -650,6 +653,7 @@ function saveStopEditor() {
   if (!s) return closeModal('stopModal');
   s.name = $('#stopName').value.trim() || s.name;
   s.duration = Math.max(0, parseInt($('#stopDuration').value, 10) || 0);
+  s.star = $('#stopStar').checked;
   s.notes = $('#stopNotes').value.trim();
   const targetId = $('#stopMoveDay').value;
   if (targetId !== d.id) {
