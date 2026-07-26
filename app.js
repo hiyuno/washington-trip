@@ -65,7 +65,7 @@ function save() {
   }, 200);
 }
 
-const ALL = '__all__';                       // pseudo-día: la vista de todo el viaje
+const ALL = '__all__';                      // pseudo-día: la vista de todo el viaje
 const isAll = () => ui.dayId === ALL;
 const DAY_COLORS = ['#4c8dff', '#35d0a5', '#f7b955', '#ff6b8b', '#b06bff', '#37c8e0'];
 
@@ -928,6 +928,21 @@ $('#btnExport').onclick = exportJSON;
 $('#btnImport').onclick = () => $('#importFile').click();
 $('#importFile').onchange = (e) => e.target.files[0] && importJSON(e.target.files[0]);
 $('#tripNameInput').oninput = (e) => { state.name = e.target.value || 'Washington Trip'; save(); renderTabs(); };
+$('#btnUpdate').onclick = async () => {
+  const btn = $('#btnUpdate');
+  btn.innerHTML = '<span class="spinner"></span> Buscando…';
+  try {
+    // Se tira el service worker y sus cachés: el itinerario vive en localStorage y no se toca.
+    const regs = await navigator.serviceWorker?.getRegistrations?.() || [];
+    await Promise.all(regs.map(r => r.unregister()));
+    const keys = await caches.keys();
+    await Promise.all(keys.filter(k => k.startsWith('watrip-shell')).map(k => caches.delete(k)));
+    location.reload();
+  } catch {
+    btn.textContent = '↻ Buscar actualización';
+    toast('No se pudo comprobar. ¿Estás sin conexión?');
+  }
+};
 $('#btnLoadPlan').onclick = () => {
   if (!window.WA_PLAN) { toast('El plan sugerido no está disponible'); return; }
   if (!confirm('Esto reemplaza tu itinerario actual por el plan sugerido. ¿Seguir?')) return;
@@ -990,6 +1005,15 @@ setTimeout(() => { if (!isAll()) fitTo(sequence(day()), ui.routes[day().id]); },
 window.DCTrip = { map, render, get state() { return state; }, get ui() { return ui; } };
 
 if ('serviceWorker' in navigator) {
+  // Si entra a mandar un service worker nuevo, se recarga una vez para no quedarse
+  // con una mezcla de versiones (HTML nuevo con JS viejo).
+  const hadController = !!navigator.serviceWorker.controller;
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || refreshing) return;
+    refreshing = true;
+    location.reload();
+  });
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 }
 })();

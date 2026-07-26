@@ -1,9 +1,9 @@
 /* Service worker: deja la app usable sin conexión.
- * - App shell: stale-while-revalidate.
+ * - App shell: red primero, caché como respaldo (para que las versiones nuevas lleguen siempre).
  * - Mosaicos del mapa: cache-first con tope de tamaño (solo los que ya viste).
  * - Nominatim / OSRM: sin interceptar, necesitan red por definición.
  */
-const SHELL_CACHE = 'watrip-shell-v4';
+const SHELL_CACHE = 'watrip-shell-v5';
 const TILE_CACHE  = 'watrip-tiles-v1';
 const MAX_TILES   = 800;
 
@@ -64,15 +64,19 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // App shell (mismo origen)
+  // App shell (mismo origen): red primero, caché como respaldo.
+  // Al revés (caché primero) una versión nueva tardaba dos recargas en aparecer,
+  // y se podía quedar el HTML nuevo con el JS viejo.
   if (url.origin === self.location.origin) {
     event.respondWith((async () => {
       const cache = await caches.open(SHELL_CACHE);
-      const hit = await cache.match(request, { ignoreSearch: true });
-      const network = fetch(request)
-        .then(res => { if (res && res.ok) cache.put(request, res.clone()); return res; })
-        .catch(() => null);
-      return hit || (await network) || cache.match('./index.html');
+      try {
+        const res = await fetch(request);
+        if (res && res.ok) cache.put(request, res.clone());
+        return res;
+      } catch {
+        return (await cache.match(request, { ignoreSearch: true })) || cache.match('./index.html');
+      }
     })());
   }
   // El resto (Nominatim, OSRM) va directo a la red.
