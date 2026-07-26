@@ -65,8 +65,13 @@ function save() {
   }, 200);
 }
 
+const ALL = '__all__';                       // pseudo-día: la vista de todo el viaje
+const isAll = () => ui.dayId === ALL;
+const DAY_COLORS = ['#4c8dff', '#35d0a5', '#f7b955', '#ff6b8b', '#b06bff', '#37c8e0'];
+
 const ui = {
   dayId: state.days[0].id,
+  locked: localStorage.getItem('dctrip.locked') === '1',   // mapa fijo: no se reencuadra solo
   searchTarget: null,   // 'stop' | 'start' | 'end'
   editingStopId: null,
   pickOnMap: false,
@@ -205,7 +210,7 @@ let pendingFit = null;
 if ('ResizeObserver' in window) {
   new ResizeObserver(() => {
     map.invalidateSize({ animate: false });
-    if (pendingFit && map.getSize().x > 0) { const p = pendingFit; pendingFit = null; fitTo(p.seq, p.route); }
+    if (pendingFit && map.getSize().x > 0) { const p = pendingFit; pendingFit = null; applyFit(p.b, p.force); }
   }).observe($('#map'));
 }
 
@@ -233,20 +238,32 @@ function drawMap(seq, route, fit) {
       .bindPopup(`<b>${escapeHtml(node.place.name)}</b><br><span style="color:#667">${escapeHtml(node.place.address || '')}</span>`)
       .addTo(layer);
   });
-  if (fit && seq.length) fitTo(seq, route);
+  if (fit && seq.length) fitTo(seq, route, fit === 'force');
 }
 
-function fitTo(seq, route) {
-  map.invalidateSize({ animate: false });
-  if (!map.getSize().x) { pendingFit = { seq, route }; return; } // todavía sin layout
-  if (seq.length === 1 && !route?.coords?.length) {
-    map.setView([seq[0].place.lat, seq[0].place.lon], 15); // con un solo punto fitBounds se va al zoom máximo
-    return;
-  }
+function fitTo(seq, route, force) {
   const b = L.latLngBounds(seq.map(nd => [nd.place.lat, nd.place.lon]));
   if (route?.coords?.length) route.coords.forEach(c => b.extend(c));
+  applyFit(b, force);
+}
+
+/** Encuadra el mapa. Con el mapa fijado solo obedece si el reencuadre lo pidió el usuario (force). */
+function applyFit(b, force) {
+  map.invalidateSize({ animate: false });
+  if (!b || !b.isValid()) return;
+  if (ui.locked && !force) return;
+  if (!map.getSize().x) { pendingFit = { b, force }; return; } // todavía sin layout
+  if (b.getNorthEast().equals(b.getSouthWest())) {
+    map.setView(b.getCenter(), 15); // un solo punto: fitBounds se iría al zoom máximo
+    return;
+  }
   // En móvil el panel tapa la parte de abajo del mapa: se compensa con padding.
-  const cover = window.innerWidth < 900 ? Math.round($('#sheet').getBoundingClientRect().height) : 0;
+  // Hay que acotarlo — si el padding se come el alto entero, fitBounds se aleja muchísimo.
+  let cover = 0;
+  if (window.innerWidth < 900) {
+    const m = $('#map').getBoundingClientRect(), s = $('#sheet').getBoundingClientRect();
+    cover = Math.max(0, Math.min(Math.round(m.bottom - s.top), Math.round(m.height) - 150));
+  }
   map.fitBounds(b, { paddingTopLeft: [36, 28], paddingBottomRight: [36, cover + 28], maxZoom: 16 });
 }
 
@@ -283,11 +300,19 @@ function timeline(d, route) {
 function renderTabs() {
   const tabs = $('#dayTabs');
   tabs.innerHTML = '';
+
+  const all = document.createElement('button');
+  all.className = 'day-tab all' + (isAll() ? ' active' : '');
+  all.innerHTML = `<b>Todo</b><small>${state.days.length} días</small>`;
+  all.onclick = () => { ui.dayId = ALL; render(true); };
+  tabs.appendChild(all);
+
   state.days.forEach((d, i) => {
     const f = fmtDate(d.date);
     const b = document.createElement('button');
     b.className = 'day-tab' + (d.id === ui.dayId ? ' active' : '');
-    b.innerHTML = `<b>Día ${i + 1}${d.stops.length ? '<span class="dot"></span>' : ''}</b><small>${f.dow} ${f.short}</small>`;
+    const dot = d.stops.length ? `<span class="dot" style="background:${DAY_COLORS[i % DAY_COLORS.length]}"></span>` : '';
+    b.innerHTML = `<b>Día ${i + 1}${dot}</b><small>${f.dow} ${f.short}</small>`;
     b.onclick = () => { ui.dayId = d.id; render(true); };
     tabs.appendChild(b);
   });
@@ -409,6 +434,9 @@ function stopRow(node, d) {
 let renderToken = 0;
 async function render(fitMap = false) {
   renderTabs();
+  $('#sheet').classList.toggle('overview', isAll());
+  if (isAll()) return renderOverview(fitMap);
+
   renderDay(fitMap);
   const token = ++renderToken;
   const d = day();
@@ -433,6 +461,129 @@ async function render(fitMap = false) {
   } finally {
     if (token === renderToken) { ui.loadingRoute = false; renderDay(fitMap); }
   }
+}
+
+// ───────────────────────────────────────── Vista de todo el viaje
+const samePlace = (a, b) =>
+  !!a && !!b && Math.abs(a.lat - b.lat) < 0.003 && Math.abs(a.lon - b.lon) < 0.003; // ~300 m
+
+function drawAll(fit) {
+  layer.clearLayers();
+  const b = L.latLngBounds([]);
+  state.days.forEach((d, i) => {
+    const seq = sequence(d);
+    if (!seq.length) return;
+    const color = DAY_COLORS[i % DAY_COLORS.length];
+    const route = ui.routes[d.id];
+
+    if (route?.coords?.length) {
+      L.polyline(route.coords, { color, weight: 4, opacity: .85 }).addTo(layer);
+      route.coords.forEach(c => b.extend(c));
+    } else if (seq.length > 1) {
+      L.polyline(seq.map(n => [n.place.lat, n.place.lon]),
+        { color, weight: 2, opacity: .5, dashArray: '6 8' }).addTo(layer);
+    }
+    seq.forEach(n => b.extend([n.place.lat, n.place.lon]));
+
+    // Solo el principio y el final de cada día: es lo que deja ver cómo enlazan.
+    const mark = (node, role) => L.marker([node.place.lat, node.place.lon], {
+      icon: L.divIcon({
+        className: '',
+        html: `<div class="pin daypin ${role}" style="background:${color}"><span>${i + 1}</span></div>`,
+        iconSize: [26, 26], iconAnchor: [13, 24],
+      }),
+    }).bindPopup(`<b>Día ${i + 1}</b> · ${role === 'a' ? 'sale de' : 'duerme en'}<br>${escapeHtml(node.place.name)}`)
+      .addTo(layer);
+
+    mark(seq[0], 'a');
+    if (seq.length > 1) mark(seq.at(-1), 'z');
+  });
+  if (fit) applyFit(b, fit === 'force');
+}
+
+function renderOverview(fitMap) {
+  const list = $('#itinerary');
+  list.innerHTML = '';
+  $('#dayTitle').textContent = 'Todo el viaje';
+
+  let totalDrive = 0, totalDist = 0;
+  state.days.forEach((d, i) => {
+    const route = ui.routes[d.id];
+    const seq = sequence(d);
+    const drive = (route?.legs || []).reduce((a, l) => a + l.duration, 0);
+    totalDrive += drive;
+    totalDist += (route?.legs || []).reduce((a, l) => a + l.distance, 0);
+    const f = fmtDate(d.date);
+    const color = DAY_COLORS[i % DAY_COLORS.length];
+
+    const li = document.createElement('li');
+    li.className = 'item';
+    li.innerHTML = `
+      <div class="idx" style="background:${color};color:#08101f">${i + 1}</div>
+      <div class="body">
+        <div class="name">${f.dow} ${f.short}${d.stops.some(s => s.star) ? ' ⭐' : ''}</div>
+        <div class="meta">${seq.length
+          ? `${escapeHtml(d.start?.name || '—')} → ${escapeHtml(d.end?.name || '—')} · ${d.stops.length} parada${d.stops.length === 1 ? '' : 's'}`
+          : 'Día sin nada planeado'}</div>
+      </div>
+      <div class="time">${route ? fmtDur(drive) : (ui.loadingRoute ? '<span class="spinner"></span>' : '—')}</div>`;
+    li.onclick = () => { ui.dayId = d.id; render(true); };
+    list.appendChild(li);
+
+    // Enlace con el día siguiente: es el punto de la vista.
+    const next = state.days[i + 1];
+    if (!next) return;
+    const join = document.createElement('li');
+    if (!d.end || !next.start) {
+      join.className = 'leg join warn';
+      join.innerHTML = `<span>⚠︎ falta ${!d.end ? `la dormida del día ${i + 1}` : `el inicio del día ${i + 2}`}</span>`;
+    } else if (samePlace(d.end, next.start)) {
+      join.className = 'leg join ok';
+      join.innerHTML = `<span>🛏 duerme en ${escapeHtml(d.end.name)} y sigue desde ahí</span>`;
+    } else {
+      join.className = 'leg join warn';
+      join.innerHTML = `<span>⚠︎ termina en ${escapeHtml(d.end.name)} pero el día ${i + 2} arranca en ${escapeHtml(next.start.name)}</span>
+                        <button class="set-btn" data-link="${i}">Enlazar</button>`;
+      join.querySelector('[data-link]').onclick = (ev) => {
+        ev.stopPropagation();
+        next.start = { ...d.end, id: uid() };
+        save(); render(false);
+        toast(`Día ${i + 2} arranca ahora en ${d.end.name}`);
+      };
+    }
+    list.appendChild(join);
+  });
+
+  $('#daySummary').innerHTML = `${state.days.length} días · 🚗 ${fmtDur(totalDrive)} · ${fmtKm(totalDist)} en total`;
+  $('#endTimeLabel').textContent = '';
+  $('#btnUndo').hidden = true;
+  $('#offlineNote').hidden = navigator.onLine;
+
+  drawAll(fitMap);
+  ensureAllRoutes(fitMap);
+}
+
+/** Calcula las rutas que falten de todos los días, de una en una para no saturar OSRM. */
+async function ensureAllRoutes(fitMap) {
+  const token = ++renderToken;
+  let pending = false;
+  for (const d of state.days) {
+    const pts = sequence(d).map(n => n.place);
+    if (pts.length < 2) { ui.routes[d.id] = null; continue; }
+    const cached = routeCache[routeKey(pts)];
+    if (cached) { ui.routes[d.id] = cached; continue; }
+    if (!navigator.onLine) continue;
+    pending = true;
+    ui.loadingRoute = true;
+    try {
+      const r = await getRoute(pts);
+      if (token !== renderToken) return;
+      ui.routes[d.id] = r;
+    } catch { if (token !== renderToken) return; ui.routes[d.id] = null; }
+  }
+  if (token !== renderToken) return;
+  ui.loadingRoute = false;
+  if (pending && isAll()) renderOverview(fitMap);
 }
 
 // ───────────────────────────────────────── Reordenar (mouse + touch)
@@ -754,7 +905,22 @@ $('#btnUndo').onclick = () => {
   if (d) d.stops = ui.undo.stops;
   ui.undo = null; save(); render(true);
 };
-$('#btnFit').onclick = () => render(true);
+$('#btnFit').onclick = () => render('force');   // reencuadrar siempre obedece, aunque esté fijado
+$('#btnLock').onclick = () => {
+  ui.locked = !ui.locked;
+  localStorage.setItem('dctrip.locked', ui.locked ? '1' : '0');
+  renderLock();
+  toast(ui.locked
+    ? 'Mapa fijo: no se moverá al cambiar de día'
+    : 'Mapa libre: se reencuadra en cada día');
+  if (!ui.locked) render(true);
+};
+function renderLock() {
+  const b = $('#btnLock');
+  b.textContent = ui.locked ? '🔒' : '🔓';
+  b.classList.toggle('active', ui.locked);
+  b.title = ui.locked ? 'Mapa fijo — tócalo para liberarlo' : 'Fijar el mapa en su sitio';
+}
 $('#btnMenu').onclick = () => { $('#tripNameInput').value = state.name; openModal('menuModal'); };
 $('#btnSaveStop').onclick = saveStopEditor;
 $('#btnDeleteStop').onclick = deleteStop;
@@ -814,10 +980,11 @@ window.addEventListener('resize', () => map.invalidateSize());
 
 // ───────────────────────────────────────── Arranque
 initSheetDrag();
+renderLock();
 render(true);
 map.whenReady(() => setTimeout(() => map.invalidateSize(), 100));
 // El panel cambia de alto mientras se pinta el itinerario: se reencuadra una vez ya asentado.
-setTimeout(() => fitTo(sequence(day()), ui.routes[day().id]), 400);
+setTimeout(() => { if (!isAll()) fitTo(sequence(day()), ui.routes[day().id]); }, 400);
 
 // Expuesto solo para depurar desde la consola.
 window.DCTrip = { map, render, get state() { return state; }, get ui() { return ui; } };

@@ -65,6 +65,7 @@ html, body {
   cursor: pointer;
 }
 .icon-btn:active { background: #1d2b45; }
+.icon-btn.active { background: var(--accent); border-color: var(--accent); }
 
 /* ───────── Day tabs ───────── */
 #dayTabs {
@@ -95,6 +96,8 @@ html, body {
 .day-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 .day-tab.active b, .day-tab.active small { color: #fff; }
 .day-tab .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--ok); margin-left: 4px; vertical-align: middle; }
+.day-tab.all { border-style: dashed; }
+.day-tab.all.active { border-style: solid; }
 
 /* ───────── Map ───────── */
 #map { flex: 1; min-height: 0; background: #0e1626; z-index: 1; }
@@ -117,6 +120,8 @@ html, body {
 .pin.start { background: var(--ok); }
 .pin.end { background: #b06bff; }
 .pin.star { background: var(--star); color: #2b1d00; }
+.pin.daypin { width: 26px; height: 26px; color: #08101f; font-size: 12px; }
+.pin.daypin.z { border-radius: 50%; border-width: 3px; border-style: double; }
 .pin.active { outline: 3px solid rgba(76,141,255,.45); }
 
 /* ───────── Bottom sheet ───────── */
@@ -214,6 +219,18 @@ html, body {
 .leg::before { content: "↓"; color: #3d5480; }
 .leg .car { opacity: .8; }
 .leg.warn { color: #ffb457; }
+
+/* Vista de todo el viaje: enlace entre un día y el siguiente */
+.leg.join { padding-left: 12px; gap: 6px; }
+.leg.join::before { content: ""; }
+.leg.join.ok { color: var(--ok); }
+.leg.join.warn { color: #ffb457; }
+.leg.join .set-btn { margin-left: auto; color: var(--accent); }
+.sheet.overview .field-row,
+.sheet.overview #btnAddStop,
+.sheet.overview #btnOptimize,
+.sheet.overview #btnUndo { display: none; }
+.sheet.overview .item { cursor: pointer; }
 
 .empty-hint { text-align: center; color: var(--muted); font-size: 13px; padding: 18px 10px; }
 
