@@ -255,7 +255,7 @@ html, body {
 .sheet.overview #btnOptimize,
 .sheet.overview #btnUndo { display: none; }
 #btnAddStar { display: none; }
-.sheet.stars-view #btnAddStar { display: block; }
+.sheet.stars-view #btnAddStar { display: inline-flex; align-items: center; }
 .sheet.overview .item { cursor: pointer; }
 
 .empty-hint { text-align: center; color: var(--muted); font-size: 13px; padding: 18px 10px; }

@@ -521,7 +521,7 @@ function renderStars(fitMap) {
   if (!stars.length) {
     const hint = document.createElement('li');
     hint.className = 'empty-hint';
-    hint.textContent = 'Todavía no hay lugares en Top. Agrega uno con el botón de abajo.';
+    hint.textContent = 'Todavía no hay lugares en Top. Toca ＋ Agregar arriba.';
     list.appendChild(hint);
   }
 
@@ -918,8 +918,8 @@ function openSearch(target) {
                                 : target === 'star' ? 'Agregar a Top'
                                 : 'Agregar parada';
   const dayWrap = $('#searchDayWrap');
-  if (target === 'star') {
-    const sel = $('#searchDay');
+  const sel = $('#searchDay');
+  if (target === 'star' && dayWrap && sel) {
     sel.innerHTML = '';
     state.days.forEach((dd, i) => {
       const f = fmtDate(dd.date);
@@ -929,13 +929,13 @@ function openSearch(target) {
       sel.appendChild(o);
     });
     dayWrap.hidden = false;
-  } else {
+  } else if (dayWrap) {
     dayWrap.hidden = true;
   }
   $('#searchInput').value = '';
   $('#searchResults').innerHTML = '';
   openModal('searchModal');
-  setTimeout(() => $('#searchInput').focus(), 60);
+  setTimeout(() => $('#searchInput')?.focus(), 60);
 }
 
 function runSearch(q) {
@@ -1104,7 +1104,11 @@ function importJSON(file) {
 // ───────────────────────────────────────── Eventos
 $('#startTime').onchange = (e) => { day().startTime = e.target.value; save(); renderDay(false); };
 $('#btnAddStop').onclick = () => openSearch('stop');
-$('#btnAddStar').onclick = () => openSearch('star');
+$('#btnAddStar').onclick = (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  openSearch('star');
+};
 $('#btnOptimize').onclick = optimizeDay;
 $('#btnUndo').onclick = () => {
   if (!ui.undo) return;

@@ -47,8 +47,9 @@
         <p id="daySummary" class="muted">—</p>
       </div>
       <div class="head-actions">
-        <button id="btnOptimize" class="btn btn-ghost" title="Reordenar para minimizar tiempo en coche">Optimizar</button>
-        <button id="btnUndo" class="btn btn-ghost" hidden>Deshacer</button>
+        <button type="button" id="btnAddStar" class="btn btn-primary">＋ Agregar</button>
+        <button type="button" id="btnOptimize" class="btn btn-ghost" title="Reordenar para minimizar tiempo en coche">Optimizar</button>
+        <button type="button" id="btnUndo" class="btn btn-ghost" hidden>Deshacer</button>
       </div>
     </div>
 
@@ -62,8 +63,7 @@
 
       <ol id="itinerary" class="itinerary"></ol>
 
-      <button id="btnAddStop" class="btn btn-primary btn-block">＋ Agregar parada</button>
-      <button id="btnAddStar" class="btn btn-primary btn-block">＋ Agregar a Top</button>
+      <button type="button" id="btnAddStop" class="btn btn-primary btn-block">＋ Agregar parada</button>
 
       <div class="offline-note" id="offlineNote" hidden>
         Sin conexión: se muestran las rutas ya calculadas.
