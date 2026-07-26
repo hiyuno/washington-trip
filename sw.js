@@ -3,12 +3,12 @@
  * - Mosaicos del mapa: cache-first con tope de tamaño (solo los que ya viste).
  * - Nominatim / OSRM: sin interceptar, necesitan red por definición.
  */
-const SHELL_CACHE = 'dctrip-shell-v1';
-const TILE_CACHE  = 'dctrip-tiles-v1';
+const SHELL_CACHE = 'watrip-shell-v2';
+const TILE_CACHE  = 'watrip-tiles-v1';
 const MAX_TILES   = 800;
 
 const SHELL = [
-  './', './index.html', './styles.css', './app.js',
+  './', './index.html', './styles.css', './app.js', './plan.js',
   './vendor/leaflet.js', './vendor/leaflet.css',
   './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png',

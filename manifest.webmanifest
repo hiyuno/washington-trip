@@ -1,7 +1,7 @@
 {
-  "name": "DC Trip — ruta por Washington",
-  "short_name": "DC Trip",
-  "description": "Planifica los días, las paradas y la ruta en coche por Washington DC.",
+  "name": "Washington Trip — Olympic, Rainier y North Cascades",
+  "short_name": "WA Trip",
+  "description": "Planifica los días, las paradas y la ruta en coche por el estado de Washington.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

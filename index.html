@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
-<title>DC Trip</title>
-<meta name="description" content="Planificador de ruta para Washington DC">
+<title>Washington Trip</title>
+<meta name="description" content="Planificador de ruta por el estado de Washington">
 <meta name="theme-color" content="#0f172a">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="DC Trip">
+<meta name="apple-mobile-web-app-title" content="WA Trip">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="icon" href="icons/icon-192.png">
@@ -21,9 +21,9 @@
 
   <header id="topbar">
     <div class="brand">
-      <span class="brand-mark">DC</span>
+      <span class="brand-mark">WA</span>
       <div class="brand-text">
-        <strong id="tripTitle">DC Trip</strong>
+        <strong id="tripTitle">Washington Trip</strong>
         <span id="tripDates">5 – 10 de agosto</span>
       </div>
     </div>
@@ -77,8 +77,8 @@
       <h3 id="searchTitle">Agregar parada</h3>
       <button class="icon-btn" data-close-modal="searchModal" aria-label="Cerrar">✕</button>
     </div>
-    <input type="search" id="searchInput" placeholder="Buscar en Washington DC…" autocomplete="off" autocorrect="off" spellcheck="false">
-    <p id="searchHint" class="muted small">Escribe al menos 3 letras: museo, monumento, hotel, restaurante…</p>
+    <input type="search" id="searchInput" placeholder="Buscar en Washington…" autocomplete="off" autocorrect="off" spellcheck="false">
+    <p id="searchHint" class="muted small">Escribe al menos 3 letras: parque, cascada, playa, hotel, gasolinera…</p>
     <ul id="searchResults" class="results"></ul>
   </div>
 </div>
@@ -118,6 +118,7 @@
       <button id="btnExport" class="btn btn-ghost btn-block">⬇︎ Exportar itinerario (JSON)</button>
       <button id="btnImport" class="btn btn-ghost btn-block">⬆︎ Importar itinerario</button>
       <input type="file" id="importFile" accept="application/json,.json" hidden>
+      <button id="btnLoadPlan" class="btn btn-ghost btn-block">✨ Cargar el plan sugerido</button>
       <button id="btnAddDay" class="btn btn-ghost btn-block">＋ Agregar un día</button>
       <button id="btnDeleteDay" class="btn btn-ghost btn-block">🗑 Eliminar el día actual</button>
       <button id="btnReset" class="btn btn-danger btn-block">Borrar todo y empezar de cero</button>
@@ -129,6 +130,7 @@
 <div id="toast" class="toast" hidden></div>
 
 <script src="vendor/leaflet.js"></script>
+<script src="plan.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

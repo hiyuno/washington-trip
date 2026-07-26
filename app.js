@@ -1,4 +1,4 @@
-/* DC Trip — planificador de ruta para Washington DC
+/* Washington Trip — planificador de ruta por el estado de Washington
  * Mapa: Leaflet + OpenStreetMap · Búsqueda: Nominatim · Rutas en coche: OSRM
  * Todo se guarda en localStorage. Sin backend.
  */
@@ -10,8 +10,8 @@ const STORAGE_KEY = 'dctrip.state.v1';
 const ROUTE_KEY   = 'dctrip.routes.v1';
 const OSRM        = 'https://router.project-osrm.org';
 const NOMINATIM   = 'https://nominatim.openstreetmap.org';
-const DC_CENTER   = [38.8951, -77.0364];
-const DC_VIEWBOX  = '-77.30,39.02,-76.79,38.75'; // izq,arriba,der,abajo
+const WA_CENTER   = [47.45, -122.30];
+const WA_VIEWBOX  = '-124.90,49.10,-116.90,45.50'; // izq,arriba,der,abajo — estado de Washington
 const TRIP_FROM   = '2026-08-05';
 const TRIP_TO     = '2026-08-10';
 const MAX_ROUTE_CACHE = 200;
@@ -33,8 +33,12 @@ function buildDays(from, to) {
 }
 const newDay = (date) => ({ id: uid(), date, startTime: '09:00', start: null, end: null, stops: [] });
 
+const blankState = () => ({ version: 1, name: 'Washington Trip', days: buildDays(TRIP_FROM, TRIP_TO) });
+
+// La primera vez se arranca con el plan sugerido (plan.js); si no está, con el viaje vacío.
 function defaultState() {
-  return { version: 1, name: 'DC Trip', days: buildDays(TRIP_FROM, TRIP_TO) };
+  try { return window.WA_PLAN ? window.WA_PLAN() : blankState(); }
+  catch { return blankState(); }
 }
 
 function loadState() {
@@ -156,7 +160,7 @@ async function getDurationMatrix(points) {
 
 async function searchPlaces(q, signal) {
   const url = `${NOMINATIM}/search?format=jsonv2&q=${encodeURIComponent(q)}` +
-              `&limit=8&addressdetails=1&accept-language=es&viewbox=${DC_VIEWBOX}`;
+              `&limit=8&addressdetails=1&accept-language=es&viewbox=${WA_VIEWBOX}`;
   const res = await fetch(url, { signal });
   if (!res.ok) throw new Error('Nominatim ' + res.status);
   return (await res.json()).map(toPlace);
@@ -186,7 +190,7 @@ function toPlace(r) {
 }
 
 // ───────────────────────────────────────── Mapa
-const map = L.map('map', { zoomControl: true, attributionControl: true, fadeAnimation: false }).setView(DC_CENTER, 13);
+const map = L.map('map', { zoomControl: true, attributionControl: true, fadeAnimation: false }).setView(WA_CENTER, 13);
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 19,
   attribution: '© OpenStreetMap · rutas OSRM',
@@ -317,7 +321,7 @@ function anchorRow(kind, place, timeStr) {
 
 function legRow(node) {
   const div = document.createElement('li');
-  const over = node.travelMin != null && node.travelMin > 45;
+  const over = node.travelMin != null && node.travelMin > 120; // tramos largos de carretera
   div.className = 'leg' + (over ? ' warn' : '');
   div.innerHTML = node.travelMin == null
     ? `<span class="car">🚗</span><span>traslado sin calcular</span>`
@@ -753,7 +757,16 @@ $('#btnDeleteStop').onclick = deleteStop;
 $('#btnExport').onclick = exportJSON;
 $('#btnImport').onclick = () => $('#importFile').click();
 $('#importFile').onchange = (e) => e.target.files[0] && importJSON(e.target.files[0]);
-$('#tripNameInput').oninput = (e) => { state.name = e.target.value || 'DC Trip'; save(); renderTabs(); };
+$('#tripNameInput').oninput = (e) => { state.name = e.target.value || 'Washington Trip'; save(); renderTabs(); };
+$('#btnLoadPlan').onclick = () => {
+  if (!window.WA_PLAN) { toast('El plan sugerido no está disponible'); return; }
+  if (!confirm('Esto reemplaza tu itinerario actual por el plan sugerido. ¿Seguir?')) return;
+  state = window.WA_PLAN();
+  ui.dayId = state.days[0].id;
+  ui.routes = {};
+  save(); closeModal('menuModal'); render(true);
+  toast('Plan sugerido cargado');
+};
 $('#btnAddDay').onclick = () => {
   const last = state.days.at(-1);
   const nd = new Date(last.date + 'T12:00:00');
@@ -776,7 +789,7 @@ $('#btnDeleteDay').onclick = () => {
 };
 $('#btnReset').onclick = () => {
   if (!confirm('¿Borrar todo el itinerario y volver a empezar?')) return;
-  state = defaultState();
+  state = blankState();
   ui.dayId = state.days[0].id;
   ui.routes = {};
   save(); closeModal('menuModal'); render(true);
