@@ -66,7 +66,10 @@ function save() {
 }
 
 const ALL = '__all__';                      // pseudo-día: la vista de todo el viaje
+const STARS = '__stars__';                  // pseudo-día: solo los lugares marcados con ⭐
 const isAll = () => ui.dayId === ALL;
+const isStars = () => ui.dayId === STARS;
+const isSpecial = () => isAll() || isStars();
 const DAY_COLORS = ['#4c8dff', '#35d0a5', '#f7b955', '#ff6b8b', '#b06bff', '#37c8e0'];
 
 const ui = {
@@ -314,6 +317,15 @@ function renderTabs() {
   all.onclick = () => { ui.dayId = ALL; render(true); };
   tabs.appendChild(all);
 
+  const stars = starredPlaces();
+  if (stars.length) {
+    const st = document.createElement('button');
+    st.className = 'day-tab all star-tab' + (isStars() ? ' active' : '');
+    st.innerHTML = `<b>⭐ Top</b><small>${stars.length} sitios</small>`;
+    st.onclick = () => { ui.dayId = STARS; render(true); };
+    tabs.appendChild(st);
+  }
+
   state.days.forEach((d, i) => {
     const f = fmtDate(d.date);
     const b = document.createElement('button');
@@ -443,7 +455,8 @@ function stopRow(node, d) {
 let renderToken = 0;
 async function render(fitMap = false) {
   renderTabs();
-  $('#sheet').classList.toggle('overview', isAll());
+  $('#sheet').classList.toggle('overview', isSpecial());
+  if (isStars()) return renderStars(fitMap);
   if (isAll()) return renderOverview(fitMap);
 
   renderDay(fitMap);
@@ -470,6 +483,76 @@ async function render(fitMap = false) {
   } finally {
     if (token === renderToken) { ui.loadingRoute = false; renderDay(fitMap); }
   }
+}
+
+// ───────────────────────────────────────── Vista de los ⭐
+/** Todas las paradas marcadas, en el orden en que las recorres. */
+function starredPlaces() {
+  const out = [];
+  state.days.forEach((d, i) => d.stops.forEach(s => {
+    if (s.star) out.push({ place: s, day: d, dayIndex: i, color: DAY_COLORS[i % DAY_COLORS.length] });
+  }));
+  return out;
+}
+
+function drawStars(fit) {
+  layer.clearLayers();
+  const b = L.latLngBounds([]);
+  starredPlaces().forEach((x, n) => {
+    L.marker([x.place.lat, x.place.lon], { icon: pinIcon(String(n + 1), 'stop star', x.color) })
+      .bindPopup(`<b>${escapeHtml(x.place.name)}</b><br>` +
+                 `<span style="color:#667">Día ${x.dayIndex + 1} · ${fmtDate(x.day.date).long}</span>`)
+      .addTo(layer);
+    b.extend([x.place.lat, x.place.lon]);
+  });
+  if (fit) applyFit(b, fit === 'force');
+}
+
+function renderStars(fitMap) {
+  const stars = starredPlaces();
+  const list = $('#itinerary');
+  list.innerHTML = '';
+  $('#dayTitle').textContent = '⭐ Lo que no te puedes perder';
+
+  if (!stars.length) {
+    const hint = document.createElement('li');
+    hint.className = 'empty-hint';
+    hint.textContent = 'Marca paradas como "Lugar principal" desde su editor y aparecerán aquí.';
+    list.appendChild(hint);
+  }
+
+  stars.forEach((x, n) => {
+    const f = fmtDate(x.day.date);
+    const li = document.createElement('li');
+    li.className = 'item';
+    li.innerHTML = `
+      <div class="idx" style="background:${x.color};color:#08101f">${n + 1}</div>
+      <div class="body">
+        <div class="name">⭐ ${escapeHtml(x.place.name)}</div>
+        <div class="meta">Día ${x.dayIndex + 1} · ${f.dow} ${f.short} · ${x.place.duration || 0} min${x.place.notes ? ' · 📝' : ''}</div>
+      </div>
+      <button class="set-btn" data-goto="${x.day.id}">Ver día →</button>`;
+    li.onclick = () => {                      // tocar la fila: centrar el mapa en ese sitio
+      map.setView([x.place.lat, x.place.lon], 13);
+      if (window.innerWidth < 900) setSheet('collapsed');
+    };
+    li.querySelector('[data-goto]').onclick = (ev) => {
+      ev.stopPropagation();
+      ui.dayId = x.day.id;
+      render(true);
+    };
+    list.appendChild(li);
+  });
+
+  const dias = new Set(stars.map(x => x.dayIndex)).size;
+  $('#daySummary').textContent = stars.length
+    ? `${stars.length} sitios repartidos en ${dias} día${dias === 1 ? '' : 's'} · tócalos para verlos en el mapa`
+    : 'Todavía no has marcado ninguno';
+  $('#endTimeLabel').textContent = '';
+  $('#btnUndo').hidden = true;
+  $('#offlineNote').hidden = navigator.onLine;
+
+  drawStars(fitMap);
 }
 
 // ───────────────────────────────────────── Vista de todo el viaje
@@ -1008,7 +1091,7 @@ renderLock();
 render(true);
 map.whenReady(() => setTimeout(() => map.invalidateSize(), 100));
 // El panel cambia de alto mientras se pinta el itinerario: se reencuadra una vez ya asentado.
-setTimeout(() => { if (!isAll()) fitTo(sequence(day()), ui.routes[day().id]); }, 400);
+setTimeout(() => { if (!isSpecial()) fitTo(sequence(day()), ui.routes[day().id]); }, 400);
 
 // Expuesto solo para depurar desde la consola.
 window.DCTrip = { map, render, get state() { return state; }, get ui() { return ui; } };

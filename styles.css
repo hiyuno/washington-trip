@@ -98,6 +98,9 @@ html, body {
 .day-tab .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--ok); margin-left: 4px; vertical-align: middle; }
 .day-tab.all { border-style: dashed; }
 .day-tab.all.active { border-style: solid; }
+.day-tab.star-tab { border-color: #4a3a1a; }
+.day-tab.star-tab.active { background: var(--star); border-color: var(--star); }
+.day-tab.star-tab.active b, .day-tab.star-tab.active small { color: #2b1d00; }
 
 /* ───────── Map ───────── */
 #map { flex: 1; min-height: 0; background: #0e1626; z-index: 1; }

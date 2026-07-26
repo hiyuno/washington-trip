@@ -3,7 +3,7 @@
  * - Mosaicos del mapa: cache-first con tope de tamaño (solo los que ya viste).
  * - Nominatim / OSRM: sin interceptar, necesitan red por definición.
  */
-const SHELL_CACHE = 'watrip-shell-v6';
+const SHELL_CACHE = 'watrip-shell-v7';
 const TILE_CACHE  = 'watrip-tiles-v1';
 const MAX_TILES   = 800;
 
