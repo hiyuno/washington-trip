@@ -329,12 +329,15 @@ function renderTabs() {
   state.days.forEach((d, i) => {
     const f = fmtDate(d.date);
     const b = document.createElement('button');
+    b.type = 'button';
     b.className = 'day-tab' + (d.id === ui.dayId ? ' active' : '');
+    b.dataset.dayId = d.id;
+    b.title = 'Arrastra para mover el itinerario a otro día';
     const color = DAY_COLORS[i % DAY_COLORS.length];
     const dot = d.stops.length ? `<span class="dot" style="background:${color}"></span>` : '';
     b.innerHTML = `<b>Día ${i + 1}${dot}</b><small>${f.dow} ${f.short}</small>`;
     if (d.id === ui.dayId) b.style.cssText = `background:${color};border-color:${color};color:#08101f`;
-    b.onclick = () => { ui.dayId = d.id; render(true); };
+    attachDayDrag(b);
     tabs.appendChild(b);
   });
   $('#tripTitle').textContent = state.name;
@@ -678,7 +681,94 @@ async function ensureAllRoutes(fitMap) {
   if (pending && isAll()) renderOverview(fitMap);
 }
 
-// ───────────────────────────────────────── Reordenar (mouse + touch)
+// ───────────────────────────────────────── Reordenar días (arrastra la pestaña)
+/** Mueve el itinerario entre fechas: las fechas del viaje se quedan, cambia el contenido. */
+function applyDayOrder(orderIds) {
+  const byId = Object.fromEntries(state.days.map(d => [d.id, d]));
+  const reordered = orderIds.map(id => byId[id]).filter(Boolean);
+  if (reordered.length !== state.days.length) return false;
+  const changed = reordered.some((d, i) => d !== state.days[i]);
+  if (!changed) return false;
+  const dates = state.days.map(d => d.date);
+  state.days = reordered;
+  state.days.forEach((d, i) => { d.date = dates[i]; });
+  return true;
+}
+
+function attachDayDrag(b) {
+  b.addEventListener('pointerdown', (ev) => {
+    if (ev.button != null && ev.button !== 0) return;
+    const tabs = $('#dayTabs');
+    const dayId = b.dataset.dayId;
+    const pid = ev.pointerId;
+    let startX = ev.clientX;
+    let dragging = false;
+
+    const dayTabs = () => $$('.day-tab[data-day-id]', tabs);
+
+    const move = (e) => {
+      if (e.pointerId !== pid) return;
+      const dx = e.clientX - startX;
+      if (!dragging) {
+        if (Math.abs(dx) < 8) return;
+        dragging = true;
+        tabs.classList.add('dragging-mode');
+        b.classList.add('dragging');
+        try { b.setPointerCapture(pid); } catch { /* ignore */ }
+      }
+      e.preventDefault();
+      b.style.transform = `translateX(${e.clientX - startX}px)`;
+
+      for (let pass = 0; pass < 20; pass++) {
+        const r = b.getBoundingClientRect();
+        const center = r.left + r.width / 2;
+        const other = dayTabs().find(x => {
+          if (x === b) return false;
+          const o = x.getBoundingClientRect();
+          return center > o.left && center < o.right;
+        });
+        if (!other) break;
+        const o = other.getBoundingClientRect();
+        const before = r.left;
+        tabs.insertBefore(b, center > o.left + o.width / 2 ? other.nextSibling : other);
+        const shift = b.getBoundingClientRect().left - before;
+        if (!shift) break;
+        startX += shift;
+        b.style.transform = `translateX(${e.clientX - startX}px)`;
+      }
+
+      const box = tabs.getBoundingClientRect();
+      if (e.clientX > box.right - 48) tabs.scrollLeft += 14;
+      else if (e.clientX < box.left + 48) tabs.scrollLeft -= 14;
+    };
+
+    const up = (e) => {
+      if (e && e.pointerId !== undefined && e.pointerId !== pid) return;
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
+      b.style.transform = '';
+      b.classList.remove('dragging');
+      tabs.classList.remove('dragging-mode');
+
+      if (!dragging) {
+        ui.dayId = dayId;
+        render(true);
+        return;
+      }
+
+      const order = dayTabs().map(x => x.dataset.dayId);
+      if (applyDayOrder(order)) { save(); render(true); }
+      else render();
+    };
+
+    window.addEventListener('pointermove', move, { passive: false });
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+  });
+}
+
+// ───────────────────────────────────────── Reordenar paradas (mouse + touch)
 function attachDrag(li) {
   const grip = li.querySelector('.grip');
   if (!grip) return;

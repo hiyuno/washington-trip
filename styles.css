@@ -90,7 +90,11 @@ html, body {
   line-height: 1.2;
   cursor: pointer;
   text-align: center;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
 }
+.day-tab[data-day-id] { cursor: grab; }
 .day-tab b { display: block; color: var(--text); font-size: 13px; font-weight: 600; }
 .day-tab small { font-size: 11px; opacity: .8; }
 .day-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
@@ -101,6 +105,15 @@ html, body {
 .day-tab.star-tab { border-color: #4a3a1a; }
 .day-tab.star-tab.active { background: var(--star); border-color: var(--star); }
 .day-tab.star-tab.active b, .day-tab.star-tab.active small { color: #2b1d00; }
+#dayTabs.dragging-mode { cursor: grabbing; }
+#dayTabs.dragging-mode .day-tab.all { opacity: .45; pointer-events: none; }
+.day-tab.dragging {
+  opacity: .95;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, .45);
+  position: relative;
+  z-index: 5;
+  cursor: grabbing;
+}
 
 /* ───────── Map ───────── */
 #map { flex: 1; min-height: 0; background: #0e1626; z-index: 1; }

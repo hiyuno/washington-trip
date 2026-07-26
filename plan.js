@@ -52,7 +52,8 @@ window.WA_PLAN = function () {
             'Cascada a 60 m del aparcamiento. OJO: el cálculo de hoy va por carretera rodeando por Tacoma. ' +
             'Si tomas el ferry Edmonds–Kingston te ahorras cerca de 1 h, pero no admite reserva: llega temprano.'),
           S('Hurricane Ridge', 'Olympic NP, Clallam County, WA', 47.96940, -123.49800, 120,
-            'Carretera de 27 km desde Port Angeles, muy revirada. Comprueba que esté abierta antes de subir.'),
+            'Carretera de 27 km desde Port Angeles, muy revirada. Comprueba que esté abierta antes de subir. ' +
+            'El centro de visitantes se quemó en 2023 y sigue sin reconstruir: solo hay baños en tráileres, sin cafetería ni tienda.'),
           S('Lake Crescent · Marymere Falls', 'Olympic NP, Clallam County, WA', 48.05030, -123.78834, 120,
             'Sendero fácil de 3 km ida y vuelta desde el Storm King Ranger Station.'),
         ],
@@ -65,8 +66,11 @@ window.WA_PLAN = function () {
             'La punta noroeste de EE. UU. continental. Sendero entablado de 1,2 km ida y vuelta hasta los miradores. ' +
             'Hace falta el Makah Recreation Pass (unos $20): se compra al llegar a Neah Bay, en el museo o en las tiendas del pueblo. ' +
             'Las 2 h de ida por la SR-112 van pegadas al estrecho y son parte del plan.'),
-          S('Rialto Beach', 'Olympic NP, Clallam County, WA', 47.92891, -124.64108, 120,
-            'Troncos gigantes y farallones. Para llegar a Hole-in-the-Wall necesitas marea baja: consulta la tabla antes.'),
+          S('Second Beach (La Push)', 'Quileute Reservation, Clallam County, WA', 47.89502, -124.62488, 120,
+            'CAMBIO: Rialto Beach está cerrada por obras del 8 jul al 15 oct de 2026 (Mora Road, reparación de socavón). ' +
+            'Second Beach es la alternativa a 10 min por otra carretera, con la misma pinta de troncos y farallones. ' +
+            'Sendero de 1,1 km entre bosque hasta la arena. Hace falta permiso de la reserva Quileute (~$10): se compra en ' +
+            'Lonesome Creek Store, en La Push. Revisa nps.gov/olym antes de salir por si la obra termina antes.'),
         ],
       },
       {
@@ -75,7 +79,8 @@ window.WA_PLAN = function () {
         stops: [
           S('Hoh Rain Forest', 'Olympic NP, Jefferson County, WA', 47.86088, -123.93479, 150,
             'Hall of Mosses: 1,3 km en bucle, es lo que has visto en fotos. La carretera de acceso son 30 km sin cobertura. ' +
-            'Sal temprano: el aparcamiento se llena y cierran la entrada.'),
+            'Sal temprano: el aparcamiento se llena y cierran la entrada. ' +
+            'Hay un incendio (Mount Tom Creek) lejos, al oeste del monte Olympus: no afecta este bucle corto, es aviso solo para mochileros del Hoh River Trail.'),
           S('Ruby Beach', 'Olympic NP, Jefferson County, WA', 47.71945, -124.41919, 75,
             'Bajada corta desde el aparcamiento. Los farallones más fotogénicos de la costa.'),
           P('Kalaloch · Tree of Life', 'Olympic NP, Jefferson County, WA', 47.60467, -124.37299, 30,
