@@ -119,7 +119,16 @@ html, body {
 .pin > span { transform: rotate(45deg); }
 .pin.start { background: var(--ok); }
 .pin.end { background: #b06bff; }
-.pin.star { background: var(--star); color: #2b1d00; }
+.pin { position: relative; }
+/* La estrella va como chapita encima del pin: así se ve sea cual sea el color del día. */
+.star-badge {
+  position: absolute; top: -7px; right: -7px;
+  transform: rotate(45deg);
+  font-size: 13px; line-height: 1;
+  color: var(--star);
+  text-shadow: 0 0 2px #000, 0 0 4px #000;
+  font-style: normal;
+}
 .pin.daypin { width: 26px; height: 26px; color: #08101f; font-size: 12px; }
 .pin.daypin.z { border-radius: 50%; border-width: 3px; border-style: double; }
 .pin.active { outline: 3px solid rgba(76,141,255,.45); }
@@ -200,8 +209,7 @@ html, body {
   background: var(--accent); color: #fff;
   font-size: 12px; font-weight: 700;
 }
-.item .idx.star { background: var(--star); color: #2b1d00; }
-.item.anchor .idx { background: var(--ok); }
+.item.anchor .idx { background: var(--ok) !important; color: #fff !important; }
 .item.anchor.end-anchor .idx { background: #b06bff; }
 .item .body { flex: 1; min-width: 0; }
 .item .name { font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

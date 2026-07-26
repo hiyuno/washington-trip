@@ -214,27 +214,34 @@ if ('ResizeObserver' in window) {
   }).observe($('#map'));
 }
 
-function pinIcon(label, kind) {
+function pinIcon(label, kind, color) {
+  const star = kind.includes('star') ? '<i class="star-badge">★</i>' : '';
+  const bg = color ? ` style="background:${color}"` : '';
   return L.divIcon({
     className: '',
-    html: `<div class="pin ${kind}"><span>${label}</span></div>`,
+    html: `<div class="pin ${kind}"${bg}><span>${label}</span>${star}</div>`,
     iconSize: [28, 28], iconAnchor: [14, 26],
   });
 }
 
-function drawMap(seq, route, fit) {
+/** El color de un día: el mismo en su pestaña, en sus pines, en su ruta y en la vista "Todo". */
+const dayColor = (d) => DAY_COLORS[Math.max(0, state.days.indexOf(d)) % DAY_COLORS.length];
+
+function drawMap(seq, route, fit, color = DAY_COLORS[0]) {
   layer.clearLayers();
   if (route?.coords?.length) {
-    L.polyline(route.coords, { color: '#4c8dff', weight: 5, opacity: .85 }).addTo(layer);
+    L.polyline(route.coords, { color, weight: 5, opacity: .85 }).addTo(layer);
   } else if (seq.length > 1) {
     L.polyline(seq.map(n => [n.place.lat, n.place.lon]),
-      { color: '#4c8dff', weight: 3, opacity: .45, dashArray: '6 8' }).addTo(layer);
+      { color, weight: 3, opacity: .45, dashArray: '6 8' }).addTo(layer);
   }
   let n = 0;
   seq.forEach(node => {
     const label = node.kind === 'start' ? 'A' : node.kind === 'end' ? '🛏' : String(++n);
     const kind = node.kind + (node.kind === 'stop' && node.place.star ? ' star' : '');
-    L.marker([node.place.lat, node.place.lon], { icon: pinIcon(label, kind) })
+    // El inicio y la dormida mantienen su color propio: si no, no se distinguen del resto.
+    const bg = node.kind === 'stop' ? color : null;
+    L.marker([node.place.lat, node.place.lon], { icon: pinIcon(label, kind, bg) })
       .bindPopup(`<b>${escapeHtml(node.place.name)}</b><br><span style="color:#667">${escapeHtml(node.place.address || '')}</span>`)
       .addTo(layer);
   });
@@ -311,8 +318,10 @@ function renderTabs() {
     const f = fmtDate(d.date);
     const b = document.createElement('button');
     b.className = 'day-tab' + (d.id === ui.dayId ? ' active' : '');
-    const dot = d.stops.length ? `<span class="dot" style="background:${DAY_COLORS[i % DAY_COLORS.length]}"></span>` : '';
+    const color = DAY_COLORS[i % DAY_COLORS.length];
+    const dot = d.stops.length ? `<span class="dot" style="background:${color}"></span>` : '';
     b.innerHTML = `<b>Día ${i + 1}${dot}</b><small>${f.dow} ${f.short}</small>`;
+    if (d.id === ui.dayId) b.style.cssText = `background:${color};border-color:${color};color:#08101f`;
     b.onclick = () => { ui.dayId = d.id; render(true); };
     tabs.appendChild(b);
   });
@@ -404,7 +413,7 @@ function renderDay(fitMap) {
   $('#btnUndo').hidden = !ui.undo || ui.undo.dayId !== d.id;
   $('#offlineNote').hidden = navigator.onLine;
 
-  drawMap(sequence(d), route, fitMap);
+  drawMap(sequence(d), route, fitMap, dayColor(d));
 }
 
 function stopRow(node, d) {
@@ -415,7 +424,7 @@ function stopRow(node, d) {
   li.dataset.id = s.id;
   const n = d.stops.indexOf(s) + 1;
   li.innerHTML = `
-    <div class="idx${s.star ? ' star' : ''}">${n}</div>
+    <div class="idx" style="background:${dayColor(d)};color:#08101f">${n}</div>
     <div class="body">
       <div class="name">${s.star ? '⭐ ' : ''}${escapeHtml(s.name)}</div>
       <div class="meta">${s.duration || 0} min${s.address ? ' · ' + escapeHtml(s.address) : ''}${s.notes ? ' · 📝' : ''}</div>

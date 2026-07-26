@@ -61,24 +61,26 @@ window.WA_PLAN = function () {
         id: uid(), date: '2026-08-08', startTime: '08:00',
         start: PORT_ANG(), end: FORKS(),
         stops: [
-          P('Sol Duc Falls', 'Olympic NP, Clallam County, WA', 47.95176, -123.81986, 120,
-            'Sendero de 2,6 km ida y vuelta entre bosque. La cascada cae partida en tres.'),
-          S('Hoh Rain Forest', 'Olympic NP, Jefferson County, WA', 47.86088, -123.93479, 150,
-            'Hall of Mosses: 1,3 km en bucle, es lo que has visto en fotos. La carretera de acceso son 30 km sin cobertura.'),
+          S('Cape Flattery', 'Makah Reservation, Clallam County, WA', 48.38552, -124.72580, 120,
+            'La punta noroeste de EE. UU. continental. Sendero entablado de 1,2 km ida y vuelta hasta los miradores. ' +
+            'Hace falta el Makah Recreation Pass (unos $20): se compra al llegar a Neah Bay, en el museo o en las tiendas del pueblo. ' +
+            'Las 2 h de ida por la SR-112 van pegadas al estrecho y son parte del plan.'),
           S('Rialto Beach', 'Olympic NP, Clallam County, WA', 47.92891, -124.64108, 120,
             'Troncos gigantes y farallones. Para llegar a Hole-in-the-Wall necesitas marea baja: consulta la tabla antes.'),
         ],
       },
       {
-        id: uid(), date: '2026-08-09', startTime: '08:30',
+        id: uid(), date: '2026-08-09', startTime: '07:30',
         start: FORKS(), end: ASHFORD(),
         stops: [
+          S('Hoh Rain Forest', 'Olympic NP, Jefferson County, WA', 47.86088, -123.93479, 150,
+            'Hall of Mosses: 1,3 km en bucle, es lo que has visto en fotos. La carretera de acceso son 30 km sin cobertura. ' +
+            'Sal temprano: el aparcamiento se llena y cierran la entrada.'),
           S('Ruby Beach', 'Olympic NP, Jefferson County, WA', 47.71945, -124.41919, 75,
             'Bajada corta desde el aparcamiento. Los farallones más fotogénicos de la costa.'),
           P('Kalaloch · Tree of Life', 'Olympic NP, Jefferson County, WA', 47.60467, -124.37299, 30,
-            'El árbol que sigue vivo colgando sobre el vacío, junto al camping de Kalaloch.'),
-          P('Lake Quinault', 'Grays Harbor County, WA', 47.46756, -123.84818, 60,
-            'Última parada del Olympic. Desde aquí empieza el tramo largo hacia el Rainier.'),
+            'El árbol que sigue vivo colgando sobre el vacío, junto al camping de Kalaloch. ' +
+            'Después empieza el tramo largo hacia el Rainier: llena el depósito aquí.'),
         ],
       },
       {
