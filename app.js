@@ -81,6 +81,7 @@ const ui = {
   undo: null,
   routes: {},           // dayId -> {legs, coords}
   loadingRoute: false,
+  expanded: new Set(),  // ids de parada con el panel de detalles abierto (solo esta sesión)
 };
 
 const day = () => state.days.find(d => d.id === ui.dayId) || state.days[0];
@@ -370,6 +371,21 @@ function anchorRow(kind, place, timeStr) {
   return li;
 }
 
+/** El contenido del panel colapsable de una parada: traslado para llegar, tiempo ahí y notas. */
+function detailBlock(node, prevName) {
+  const parts = [];
+  parts.push(node.travelMin != null
+    ? `<div>🚗 ${fmtDur(node.travelMin * 60)}${node.distance != null ? ' · ' + fmtKm(node.distance) : ''} desde ${escapeHtml(prevName || 'la parada anterior')}</div>`
+    : `<div>🚗 traslado sin calcular todavía</div>`);
+  parts.push(`<div>⏱ Te quedas ${fmtDur((node.stay || 0) * 60)} aquí</div>`);
+  if (node.arrive != null) {
+    parts.push(`<div>🕐 De ${fmtClock(node.arrive)} a ${fmtClock(node.depart ?? node.arrive)}</div>`);
+  }
+  if (node.place.notes) parts.push(`<div class="detail-notes">📝 ${escapeHtml(node.place.notes)}</div>`);
+  parts.push(`<div class="detail-hint">Clic derecho en la fila para eliminarla</div>`);
+  return parts.join('');
+}
+
 function legRow(node) {
   const div = document.createElement('li');
   const over = node.travelMin != null && node.travelMin > 120; // tramos largos de carretera
@@ -399,7 +415,7 @@ function renderDay(fitMap) {
   nodes.forEach((node, i) => {
     if (i > 0) list.appendChild(legRow(node));
     const time = node.arrive != null ? fmtClock(node.arrive) : '';
-    list.appendChild(node.kind === 'stop' ? stopRow(node, d) : anchorRow(node.kind, node.place, time));
+    list.appendChild(node.kind === 'stop' ? stopRow(node, d, nodes[i - 1]?.place?.name) : anchorRow(node.kind, node.place, time));
   });
 
   if (!d.stops.length) {
@@ -415,9 +431,10 @@ function renderDay(fitMap) {
   // resumen
   const totalTravel = (route?.legs || []).reduce((a, l) => a + l.duration, 0);
   const totalDist = (route?.legs || []).reduce((a, l) => a + l.distance, 0);
+  const totalStay = d.stops.reduce((a, s) => a + (s.duration || 0), 0);
   const last = nodes.at(-1);
   $('#daySummary').innerHTML = d.stops.length
-    ? `${d.stops.length} parada${d.stops.length > 1 ? 's' : ''} · 🚗 ${route ? fmtDur(totalTravel) + ' · ' + fmtKm(totalDist) : (ui.loadingRoute ? '<span class="spinner"></span>' : '—')}`
+    ? `${d.stops.length} parada${d.stops.length > 1 ? 's' : ''} · 🚗 ${route ? fmtDur(totalTravel) + ' · ' + fmtKm(totalDist) : (ui.loadingRoute ? '<span class="spinner"></span>' : '—')} · ⏱ ${fmtDur(totalStay * 60)} en sitios`
     : 'Sin paradas todavía';
   const endMin = last?.arrive;
   $('#endTimeLabel').textContent = endMin != null
@@ -431,10 +448,11 @@ function renderDay(fitMap) {
   drawMap(sequence(d), route, fitMap, dayColor(d));
 }
 
-function stopRow(node, d) {
+function stopRow(node, d, prevName) {
   const s = node.place;
   const li = document.createElement('li');
-  li.className = 'item';
+  const expanded = ui.expanded.has(s.id);
+  li.className = 'item' + (expanded ? ' expanded' : '');
   li.dataset.kind = 'stop';
   li.dataset.id = s.id;
   const n = d.stops.indexOf(s) + 1;
@@ -445,12 +463,20 @@ function stopRow(node, d) {
       <div class="meta">${s.duration || 0} min${s.address ? ' · ' + escapeHtml(s.address) : ''}${s.notes ? ' · 📝' : ''}</div>
     </div>
     <div class="time">${node.arrive != null ? fmtClock(node.arrive) : ''}</div>
-    <div class="grip" title="Arrastra para reordenar">⣿</div>`;
+    <button type="button" class="expand-btn" aria-label="Ver detalles del traslado" title="Ver detalles">⌄</button>
+    <div class="grip" title="Arrastra para reordenar">⣿</div>
+    <div class="stop-details" ${expanded ? '' : 'hidden'}>${detailBlock(node, prevName)}</div>`;
   li.querySelector('.body').onclick = () => openStopEditor(s.id);
   li.querySelector('.idx').onclick = () => {
     map.setView([s.lat, s.lon], 16);
     if (window.innerWidth < 900) setSheet('collapsed');
   };
+  li.querySelector('.expand-btn').onclick = (ev) => {
+    ev.stopPropagation();
+    if (ui.expanded.has(s.id)) ui.expanded.delete(s.id); else ui.expanded.add(s.id);
+    renderDay(false); // solo repinta la lista: no toca el mapa ni recalcula la ruta
+  };
+  li.addEventListener('contextmenu', (ev) => { ev.preventDefault(); deleteStopFrom(d, s.id); });
   attachDrag(li);
   return li;
 }
@@ -512,6 +538,19 @@ function drawStars(fit) {
   if (fit) applyFit(b, fit === 'force');
 }
 
+/** El detalle de una estrella se apoya en la ruta ya calculada de su propio día. */
+function starDetailBlock(x) {
+  const nodes = timeline(x.day, ui.routes[x.day.id]);
+  const i = nodes.findIndex(nd => nd.place === x.place);
+  const node = i >= 0 ? nodes[i] : null;
+  const prevName = i > 0 ? nodes[i - 1].place.name : null;
+  if (!node) {
+    return `<div>🚗 traslado sin calcular todavía</div><div>⏱ Te quedas ${fmtDur((x.place.duration || 0) * 60)} aquí</div>` +
+           `<div class="detail-hint">Clic derecho en la fila para eliminarla</div>`;
+  }
+  return detailBlock(node, prevName);
+}
+
 function renderStars(fitMap) {
   const stars = starredPlaces();
   const list = $('#itinerary');
@@ -527,15 +566,18 @@ function renderStars(fitMap) {
 
   stars.forEach((x, n) => {
     const f = fmtDate(x.day.date);
+    const expanded = ui.expanded.has(x.place.id);
     const li = document.createElement('li');
-    li.className = 'item';
+    li.className = 'item' + (expanded ? ' expanded' : '');
     li.innerHTML = `
       <div class="idx" style="background:${x.color};color:#08101f">${n + 1}</div>
       <div class="body">
         <div class="name">⭐ ${escapeHtml(x.place.name)}</div>
         <div class="meta">Día ${x.dayIndex + 1} · ${f.dow} ${f.short} · ${x.place.duration || 0} min${x.place.notes ? ' · 📝' : ''}</div>
       </div>
-      <button class="set-btn" data-goto="${x.day.id}">Ver día →</button>`;
+      <button type="button" class="expand-btn" aria-label="Ver detalles del traslado" title="Ver detalles">⌄</button>
+      <button class="set-btn" data-goto="${x.day.id}">Ver día →</button>
+      <div class="stop-details" ${expanded ? '' : 'hidden'}>${starDetailBlock(x)}</div>`;
     li.onclick = () => {                      // tocar la fila: centrar el mapa en ese sitio
       map.setView([x.place.lat, x.place.lon], 13);
       if (window.innerWidth < 900) setSheet('collapsed');
@@ -545,18 +587,26 @@ function renderStars(fitMap) {
       ui.dayId = x.day.id;
       render(true);
     };
+    li.querySelector('.expand-btn').onclick = (ev) => {
+      ev.stopPropagation();
+      if (ui.expanded.has(x.place.id)) ui.expanded.delete(x.place.id); else ui.expanded.add(x.place.id);
+      renderStars(false);
+    };
+    li.addEventListener('contextmenu', (ev) => { ev.preventDefault(); deleteStopFrom(x.day, x.place.id); });
     list.appendChild(li);
   });
 
   const dias = new Set(stars.map(x => x.dayIndex)).size;
+  const totalStay = stars.reduce((a, x) => a + (x.place.duration || 0), 0);
   $('#daySummary').textContent = stars.length
-    ? `${stars.length} sitios repartidos en ${dias} día${dias === 1 ? '' : 's'} · tócalos para verlos en el mapa`
+    ? `${stars.length} sitios en ${dias} día${dias === 1 ? '' : 's'} · ⏱ ${fmtDur(totalStay * 60)} de visitas · tócalos para verlos en el mapa`
     : 'Todavía no has marcado ninguno';
   $('#endTimeLabel').textContent = '';
   $('#btnUndo').hidden = true;
   $('#offlineNote').hidden = navigator.onLine;
 
   drawStars(fitMap);
+  ensureAllRoutes(false); // trae las rutas que falten para poder mostrar el traslado a cada estrella
 }
 
 // ───────────────────────────────────────── Vista de todo el viaje
@@ -679,7 +729,9 @@ async function ensureAllRoutes(fitMap) {
   }
   if (token !== renderToken) return;
   ui.loadingRoute = false;
-  if (pending && isAll()) renderOverview(fitMap);
+  if (!pending) return;
+  if (isAll()) renderOverview(fitMap);
+  else if (isStars()) renderStars(fitMap);
 }
 
 // ───────────────────────────────────────── Reordenar días (arrastra la pestaña)
@@ -1026,9 +1078,22 @@ function saveStopEditor() {
 function deleteStop() {
   const d = day();
   d.stops = d.stops.filter(x => x.id !== ui.editingStopId);
+  ui.expanded.delete(ui.editingStopId);
   save();
   closeModal('stopModal');
   render(true);
+}
+
+/** Borra una parada de cualquier día, con confirmación. Para el clic derecho. */
+function deleteStopFrom(d, id) {
+  const s = d.stops.find(x => x.id === id);
+  if (!s) return;
+  if (!confirm(`¿Eliminar "${s.name}"?`)) return;
+  d.stops = d.stops.filter(x => x.id !== id);
+  ui.expanded.delete(id);
+  save();
+  render(true);
+  toast(`${s.name} eliminado`);
 }
 
 // ───────────────────────────────────────── Modales y sheet
