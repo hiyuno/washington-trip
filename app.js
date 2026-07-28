@@ -372,7 +372,15 @@ function anchorRow(kind, place, timeStr) {
 }
 
 /** El contenido del panel colapsable de una parada: traslado para llegar, tiempo ahí y notas. */
-function detailBlock(node, prevName) {
+/** Botones del pie del panel: en el teléfono no hay clic derecho, así que van a la vista. */
+function detailActions({ unstar = false } = {}) {
+  const b = [];
+  if (unstar) b.push(`<button type="button" class="detail-act" data-act="unstar">✕ Quitar de Top</button>`);
+  b.push(`<button type="button" class="detail-act danger" data-act="delete">🗑 Eliminar parada</button>`);
+  return `<div class="detail-actions">${b.join('')}</div>`;
+}
+
+function detailBlock(node, prevName, actions = detailActions()) {
   const parts = [];
   parts.push(node.travelMin != null
     ? `<div>🚗 ${fmtDur(node.travelMin * 60)}${node.distance != null ? ' · ' + fmtKm(node.distance) : ''} desde ${escapeHtml(prevName || 'la parada anterior')}</div>`
@@ -382,7 +390,7 @@ function detailBlock(node, prevName) {
     parts.push(`<div>🕐 De ${fmtClock(node.arrive)} a ${fmtClock(node.depart ?? node.arrive)}</div>`);
   }
   if (node.place.notes) parts.push(`<div class="detail-notes">📝 ${escapeHtml(node.place.notes)}</div>`);
-  parts.push(`<div class="detail-hint">Clic derecho en la fila para eliminarla</div>`);
+  parts.push(actions);
   return parts.join('');
 }
 
@@ -476,6 +484,10 @@ function stopRow(node, d, prevName) {
     if (ui.expanded.has(s.id)) ui.expanded.delete(s.id); else ui.expanded.add(s.id);
     renderDay(false); // solo repinta la lista: no toca el mapa ni recalcula la ruta
   };
+  li.querySelector('[data-act="delete"]').onclick = (ev) => {
+    ev.stopPropagation();
+    deleteStopFrom(d, s.id);
+  };
   li.addEventListener('contextmenu', (ev) => { ev.preventDefault(); deleteStopFrom(d, s.id); });
   attachDrag(li);
   return li;
@@ -544,11 +556,20 @@ function starDetailBlock(x) {
   const i = nodes.findIndex(nd => nd.place === x.place);
   const node = i >= 0 ? nodes[i] : null;
   const prevName = i > 0 ? nodes[i - 1].place.name : null;
+  const actions = detailActions({ unstar: true });
   if (!node) {
-    return `<div>🚗 traslado sin calcular todavía</div><div>⏱ Te quedas ${fmtDur((x.place.duration || 0) * 60)} aquí</div>` +
-           `<div class="detail-hint">Clic derecho en la fila para eliminarla</div>`;
+    return `<div>🚗 traslado sin calcular todavía</div><div>⏱ Te quedas ${fmtDur((x.place.duration || 0) * 60)} aquí</div>` + actions;
   }
-  return detailBlock(node, prevName);
+  return detailBlock(node, prevName, actions);
+}
+
+/** Saca un sitio de ⭐ Top sin borrarlo: la parada se queda en su día. */
+function unstarPlace(x) {
+  x.place.star = false;
+  ui.expanded.delete(x.place.id);
+  save();
+  render(true);
+  toast(`${x.place.name} ya no está en Top · sigue en el día ${x.dayIndex + 1}`);
 }
 
 function renderStars(fitMap) {
@@ -591,6 +612,14 @@ function renderStars(fitMap) {
       ev.stopPropagation();
       if (ui.expanded.has(x.place.id)) ui.expanded.delete(x.place.id); else ui.expanded.add(x.place.id);
       renderStars(false);
+    };
+    li.querySelector('[data-act="unstar"]').onclick = (ev) => {
+      ev.stopPropagation();
+      unstarPlace(x);
+    };
+    li.querySelector('[data-act="delete"]').onclick = (ev) => {
+      ev.stopPropagation();
+      deleteStopFrom(x.day, x.place.id);
     };
     li.addEventListener('contextmenu', (ev) => { ev.preventDefault(); deleteStopFrom(x.day, x.place.id); });
     list.appendChild(li);
