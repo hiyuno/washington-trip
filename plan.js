@@ -28,8 +28,6 @@ window.WA_PLAN = function () {
             'Primer contacto con la ciudad. Aparcar en el centro es caro y difícil.'),
           P('Kerry Park', 'Seattle, King County, WA', 47.62936, -122.35990, 30,
             'La vista clásica del skyline con el Rainier detrás. Mejor con luz de tarde.'),
-          S('Alki Beach', 'West Seattle, King County, WA', 47.58669, -122.39764, 150,
-            'Atardecer sobre la bahía con Seattle enfrente. En agosto el sol se pone cerca de las 20:45.'),
         ],
       },
       {
