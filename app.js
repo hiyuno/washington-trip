@@ -196,6 +196,7 @@ function toPlace(r) {
     duration: 60,
     notes: '',
     star: false,
+    best: '',
   };
 }
 
@@ -412,6 +413,7 @@ function anchorRow(kind, place, timeStr, d) {
       </div>
       <div class="time">${timeStr || ''}</div>
       ${useBtn}
+      <button type="button" class="unstar-btn" data-act="clear-anchor" aria-label="Dejar sin definir" title="Dejar sin definir">✕</button>
       <button class="set-btn" data-act="edit-anchor">Cambiar</button>`;
   } else {
     li.innerHTML = `
@@ -428,6 +430,12 @@ function anchorRow(kind, place, timeStr, d) {
     render(true);
     toast(`Empiezas en ${prevEnd.name}`);
   });
+  li.querySelector('[data-act=clear-anchor]')?.addEventListener('click', () => {
+    if (kind === 'start') d.start = null; else d.end = null;
+    save();
+    render(true);
+    toast('Dejado sin definir');
+  });
   return li;
 }
 
@@ -441,6 +449,7 @@ function detailBlock(node, prevName, hint = 'Clic derecho en la fila para elimin
   if (node.arrive != null) {
     parts.push(`<div>🕐 De ${fmtClock(node.arrive)} a ${fmtClock(node.depart ?? node.arrive)}</div>`);
   }
+  if (node.place.best) parts.push(`<div class="detail-best">⏰ Mejor hora: ${escapeHtml(node.place.best)}</div>`);
   if (node.place.notes) parts.push(`<div class="detail-notes">📝 ${escapeHtml(node.place.notes)}</div>`);
   if (hint) parts.push(`<div class="detail-hint">${hint}</div>`);
   return parts.join('');
@@ -606,8 +615,9 @@ function starDetailBlock(x) {
   const node = i >= 0 ? nodes[i] : null;
   const prevName = i > 0 ? nodes[i - 1].place.name : null;
   if (!node) {
+    const best = x.place.best ? `<div class="detail-best">⏰ Mejor hora: ${escapeHtml(x.place.best)}</div>` : '';
     return `<div>🚗 traslado sin calcular todavía</div><div>⏱ Te quedas ${fmtDur((x.place.duration || 0) * 60)} aquí</div>` +
-           `<div class="detail-hint">${hint}</div>`;
+           best + `<div class="detail-hint">${hint}</div>`;
   }
   return detailBlock(node, prevName, hint);
 }
