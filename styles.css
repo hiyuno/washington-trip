@@ -145,6 +145,21 @@ html, body {
   text-shadow: 0 0 2px #000, 0 0 4px #000;
   font-style: normal;
 }
+/* Etiqueta con el tiempo aproximado, a mitad de cada tramo de la ruta en el mapa. */
+.route-time-badge {
+  display: inline-block;
+  transform: translate(-50%, -50%);
+  background: rgba(11, 18, 32, .92);
+  border: 1.5px solid var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 2px 6px rgba(0,0,0,.4);
+}
 .pin.daypin { width: 26px; height: 26px; color: #08101f; font-size: 12px; }
 .pin.daypin.z { border-radius: 50%; border-width: 3px; border-style: double; }
 .pin.active { outline: 3px solid rgba(76,141,255,.45); }

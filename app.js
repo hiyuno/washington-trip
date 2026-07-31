@@ -231,6 +231,46 @@ function pinIcon(label, kind, color) {
 /** El color de un día: el mismo en su pestaña, en sus pines, en su ruta y en la vista "Todo". */
 const dayColor = (d) => DAY_COLORS[Math.max(0, state.days.indexOf(d)) % DAY_COLORS.length];
 
+function haversineMeters(a, b) {
+  const R = 6371000, toRad = x => x * Math.PI / 180;
+  const dLat = toRad(b[0] - a[0]), dLon = toRad(b[1] - a[1]);
+  const s = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a[0])) * Math.cos(toRad(b[0])) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+
+/** Punto interpolado sobre una polilínea, a `targetDist` metros desde el inicio. */
+function pointAtDistance(coords, targetDist) {
+  let acc = 0;
+  for (let i = 1; i < coords.length; i++) {
+    const seg = haversineMeters(coords[i - 1], coords[i]);
+    if (acc + seg >= targetDist) {
+      const t = seg === 0 ? 0 : (targetDist - acc) / seg;
+      return [coords[i - 1][0] + (coords[i][0] - coords[i - 1][0]) * t,
+              coords[i - 1][1] + (coords[i][1] - coords[i - 1][1]) * t];
+    }
+    acc += seg;
+  }
+  return coords[coords.length - 1];
+}
+
+/** Una etiqueta con el tiempo aproximado, centrada a la mitad de cada tramo de la ruta. */
+function drawRouteTimes(route, color) {
+  if (!route?.legs?.length || !route.coords?.length) return;
+  let cum = 0;
+  route.legs.forEach(leg => {
+    const pos = pointAtDistance(route.coords, cum + leg.distance / 2);
+    L.marker(pos, {
+      icon: L.divIcon({
+        className: '',
+        html: `<div class="route-time-badge" style="border-color:${color}">🚗 ${fmtDur(leg.duration)}</div>`,
+        iconSize: [0, 0], iconAnchor: [0, 0],
+      }),
+      interactive: false, keyboard: false,
+    }).addTo(layer);
+    cum += leg.distance;
+  });
+}
+
 function drawMap(seq, route, fit, color = DAY_COLORS[0]) {
   layer.clearLayers();
   if (route?.coords?.length) {
@@ -239,6 +279,7 @@ function drawMap(seq, route, fit, color = DAY_COLORS[0]) {
     L.polyline(seq.map(n => [n.place.lat, n.place.lon]),
       { color, weight: 3, opacity: .45, dashArray: '6 8' }).addTo(layer);
   }
+  drawRouteTimes(route, color);
   let n = 0;
   seq.forEach(node => {
     const label = node.kind === 'start' ? 'A' : node.kind === 'end' ? '🛏' : String(++n);
