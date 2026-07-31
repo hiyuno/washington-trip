@@ -440,7 +440,7 @@ function anchorRow(kind, place, timeStr, d) {
 }
 
 /** El contenido del panel colapsable de una parada: traslado para llegar, tiempo ahí y notas. */
-function detailBlock(node, prevName, hint = 'Clic derecho en la fila para eliminarla') {
+function detailBlock(node, prevName, hint = 'Toca ✕ o haz clic derecho en la fila para eliminarla') {
   const parts = [];
   parts.push(node.travelMin != null
     ? `<div>🚗 ${fmtDur(node.travelMin * 60)}${node.distance != null ? ' · ' + fmtKm(node.distance) : ''} desde ${escapeHtml(prevName || 'la parada anterior')}</div>`
@@ -533,6 +533,7 @@ function stopRow(node, d, prevName) {
     </div>
     <div class="time">${node.arrive != null ? fmtClock(node.arrive) : ''}</div>
     <button type="button" class="expand-btn" aria-label="Ver detalles del traslado" title="Ver detalles">⌄</button>
+    <button type="button" class="unstar-btn" aria-label="Eliminar parada" title="Eliminar">✕</button>
     <div class="grip" title="Arrastra para reordenar">⣿</div>
     <div class="stop-details" ${expanded ? '' : 'hidden'}>${detailBlock(node, prevName)}</div>`;
   li.querySelector('.body').onclick = () => openStopEditor(s.id);
@@ -545,6 +546,7 @@ function stopRow(node, d, prevName) {
     if (ui.expanded.has(s.id)) ui.expanded.delete(s.id); else ui.expanded.add(s.id);
     renderDay(false); // solo repinta la lista: no toca el mapa ni recalcula la ruta
   };
+  li.querySelector('.unstar-btn').onclick = (ev) => { ev.stopPropagation(); deleteStopFrom(d, s.id); };
   li.addEventListener('contextmenu', (ev) => { ev.preventDefault(); deleteStopFrom(d, s.id); });
   attachDrag(li);
   return li;
