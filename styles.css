@@ -255,6 +255,10 @@ html, body {
 .item .grip { flex: 0 0 auto; padding: 4px 2px 4px 6px; color: #54688f; cursor: grab; touch-action: none; font-size: 15px; }
 .item .grip:active { cursor: grabbing; }
 .item .set-btn { border: 0; background: transparent; color: var(--accent); font: inherit; font-size: 13px; cursor: pointer; padding: 2px 4px; }
+.item .set-btn[data-act="use-prev"] {
+  background: var(--accent-soft); border-radius: 8px; padding: 5px 9px;
+  max-width: 42vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 
 .item .expand-btn {
   flex: 0 0 auto;

@@ -387,11 +387,22 @@ function renderTabs() {
   $('#tripDates').textContent = `${a.short} – ${z.short}`;
 }
 
-function anchorRow(kind, place, timeStr) {
+function anchorRow(kind, place, timeStr, d) {
   const li = document.createElement('li');
   li.className = 'item anchor' + (kind === 'end' ? ' end-anchor' : '');
   li.dataset.kind = kind;
   const title = kind === 'start' ? 'Inicio del día' : 'Dónde duermo';
+
+  // Si el día empieza distinto de donde durmió el día anterior, se ofrece igualarlo con un toque.
+  let prevEnd = null;
+  if (kind === 'start' && d) {
+    const idx = state.days.indexOf(d);
+    prevEnd = idx > 0 ? state.days[idx - 1].end : null;
+    if (prevEnd && place && samePlace(place, prevEnd)) prevEnd = null;
+  }
+  const useBtn = prevEnd
+    ? `<button class="set-btn" data-act="use-prev">🛏 Usar ${escapeHtml(prevEnd.name)}</button>` : '';
+
   if (place) {
     li.innerHTML = `
       <div class="idx">${kind === 'start' ? 'A' : '🛏'}</div>
@@ -400,15 +411,23 @@ function anchorRow(kind, place, timeStr) {
         <div class="meta">${title}${place.address ? ' · ' + escapeHtml(place.address) : ''}</div>
       </div>
       <div class="time">${timeStr || ''}</div>
+      ${useBtn}
       <button class="set-btn" data-act="edit-anchor">Cambiar</button>`;
   } else {
     li.innerHTML = `
       <div class="idx">${kind === 'start' ? 'A' : '🛏'}</div>
       <div class="body"><div class="name muted">${title}</div>
       <div class="meta">Sin definir</div></div>
+      ${useBtn}
       <button class="set-btn" data-act="edit-anchor">Definir</button>`;
   }
   li.querySelector('[data-act=edit-anchor]').onclick = () => openSearch(kind);
+  li.querySelector('[data-act=use-prev]')?.addEventListener('click', () => {
+    d.start = { ...prevEnd, id: uid() };
+    save();
+    render(true);
+    toast(`Empiezas en ${prevEnd.name}`);
+  });
   return li;
 }
 
@@ -451,12 +470,12 @@ function renderDay(fitMap) {
   list.innerHTML = '';
 
   // El inicio siempre encabeza la lista, aunque todavía no esté definido.
-  if (!d.start) list.appendChild(anchorRow('start', null));
+  if (!d.start) list.appendChild(anchorRow('start', null, null, d));
 
   nodes.forEach((node, i) => {
     if (i > 0) list.appendChild(legRow(node));
     const time = node.arrive != null ? fmtClock(node.arrive) : '';
-    list.appendChild(node.kind === 'stop' ? stopRow(node, d, nodes[i - 1]?.place?.name) : anchorRow(node.kind, node.place, time));
+    list.appendChild(node.kind === 'stop' ? stopRow(node, d, nodes[i - 1]?.place?.name) : anchorRow(node.kind, node.place, time, d));
   });
 
   if (!d.stops.length) {
@@ -1077,9 +1096,20 @@ function acceptPlace(p) {
     d.stops.push(p);
   } else {
     const d = day();
-    if (ui.searchTarget === 'start') d.start = p;
-    else if (ui.searchTarget === 'end') d.end = p;
-    else d.stops.push(p);
+    if (ui.searchTarget === 'start') {
+      d.start = p;
+    } else if (ui.searchTarget === 'end') {
+      const oldEnd = d.end;
+      d.end = p;
+      // El día siguiente sigue a la dormida: se actualiza solo si no tenía inicio
+      // propio o si seguía la dormida anterior (para no pisar un inicio distinto a propósito).
+      const next = state.days[state.days.indexOf(d) + 1];
+      if (next && (!next.start || (oldEnd && samePlace(next.start, oldEnd)))) {
+        next.start = { ...p, id: uid() };
+      }
+    } else {
+      d.stops.push(p);
+    }
   }
   save();
   closeModal('searchModal');
