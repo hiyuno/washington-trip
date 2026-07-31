@@ -262,7 +262,7 @@ function drawRouteTimes(route, color) {
     L.marker(pos, {
       icon: L.divIcon({
         className: '',
-        html: `<div class="route-time-badge" style="border-color:${color}">🚗 ${fmtDur(leg.duration)}</div>`,
+        html: `<div class="route-time-badge" style="border-color:${color}"><span class="route-time-emoji">🚗</span>${fmtDur(leg.duration)}</div>`,
         iconSize: [0, 0], iconAnchor: [0, 0],
       }),
       interactive: false, keyboard: false,
