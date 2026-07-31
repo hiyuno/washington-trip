@@ -244,6 +244,16 @@ html, body {
 }
 .item.expanded .expand-btn { transform: rotate(180deg); color: var(--accent); }
 
+.item .unstar-btn {
+  flex: 0 0 auto;
+  width: 26px; height: 26px;
+  display: grid; place-items: center;
+  border: 1px solid var(--line); border-radius: 50%;
+  background: var(--panel); color: var(--muted);
+  font-size: 12px; line-height: 1; cursor: pointer;
+}
+.item .unstar-btn:active { background: #3a1620; border-color: #5a2733; color: var(--danger); }
+
 /* Panel colapsable con el desglose: traslado para llegar, tiempo en el sitio y notas. */
 .stop-details {
   flex-basis: 100%;

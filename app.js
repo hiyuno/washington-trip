@@ -372,7 +372,7 @@ function anchorRow(kind, place, timeStr) {
 }
 
 /** El contenido del panel colapsable de una parada: traslado para llegar, tiempo ahí y notas. */
-function detailBlock(node, prevName) {
+function detailBlock(node, prevName, hint = 'Clic derecho en la fila para eliminarla') {
   const parts = [];
   parts.push(node.travelMin != null
     ? `<div>🚗 ${fmtDur(node.travelMin * 60)}${node.distance != null ? ' · ' + fmtKm(node.distance) : ''} desde ${escapeHtml(prevName || 'la parada anterior')}</div>`
@@ -382,7 +382,7 @@ function detailBlock(node, prevName) {
     parts.push(`<div>🕐 De ${fmtClock(node.arrive)} a ${fmtClock(node.depart ?? node.arrive)}</div>`);
   }
   if (node.place.notes) parts.push(`<div class="detail-notes">📝 ${escapeHtml(node.place.notes)}</div>`);
-  parts.push(`<div class="detail-hint">Clic derecho en la fila para eliminarla</div>`);
+  if (hint) parts.push(`<div class="detail-hint">${hint}</div>`);
   return parts.join('');
 }
 
@@ -540,15 +540,24 @@ function drawStars(fit) {
 
 /** El detalle de una estrella se apoya en la ruta ya calculada de su propio día. */
 function starDetailBlock(x) {
+  const hint = 'Toca ✕ para quitarla solo de Top · clic derecho la borra del día entero';
   const nodes = timeline(x.day, ui.routes[x.day.id]);
   const i = nodes.findIndex(nd => nd.place === x.place);
   const node = i >= 0 ? nodes[i] : null;
   const prevName = i > 0 ? nodes[i - 1].place.name : null;
   if (!node) {
     return `<div>🚗 traslado sin calcular todavía</div><div>⏱ Te quedas ${fmtDur((x.place.duration || 0) * 60)} aquí</div>` +
-           `<div class="detail-hint">Clic derecho en la fila para eliminarla</div>`;
+           `<div class="detail-hint">${hint}</div>`;
   }
-  return detailBlock(node, prevName);
+  return detailBlock(node, prevName, hint);
+}
+
+/** Quita una estrella de Top sin borrar el lugar: sigue en su día, solo deja de ser "principal". */
+function unstarPlace(place) {
+  place.star = false;
+  save();
+  render(true);
+  toast(`${place.name} quitado de Top`);
 }
 
 function renderStars(fitMap) {
@@ -576,6 +585,7 @@ function renderStars(fitMap) {
         <div class="meta">Día ${x.dayIndex + 1} · ${f.dow} ${f.short} · ${x.place.duration || 0} min${x.place.notes ? ' · 📝' : ''}</div>
       </div>
       <button type="button" class="expand-btn" aria-label="Ver detalles del traslado" title="Ver detalles">⌄</button>
+      <button type="button" class="unstar-btn" aria-label="Quitar de Top" title="Quitar de Top (sigue en su día)">✕</button>
       <button class="set-btn" data-goto="${x.day.id}">Ver día →</button>
       <div class="stop-details" ${expanded ? '' : 'hidden'}>${starDetailBlock(x)}</div>`;
     li.onclick = () => {                      // tocar la fila: centrar el mapa en ese sitio
@@ -591,6 +601,10 @@ function renderStars(fitMap) {
       ev.stopPropagation();
       if (ui.expanded.has(x.place.id)) ui.expanded.delete(x.place.id); else ui.expanded.add(x.place.id);
       renderStars(false);
+    };
+    li.querySelector('.unstar-btn').onclick = (ev) => {
+      ev.stopPropagation();
+      unstarPlace(x.place);
     };
     li.addEventListener('contextmenu', (ev) => { ev.preventDefault(); deleteStopFrom(x.day, x.place.id); });
     list.appendChild(li);
