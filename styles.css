@@ -67,6 +67,18 @@ html, body {
 .icon-btn:active { background: #1d2b45; }
 .icon-btn.active { background: var(--accent); border-color: var(--accent); }
 
+/* Punto de estado de sincronización, junto a los botones del encabezado. */
+.sync-dot {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: #45536f; flex: 0 0 auto; margin: 0 2px;
+  transition: background .2s ease;
+}
+.sync-dot[data-status="syncing"] { background: var(--star); animation: pulse 1s ease-in-out infinite; }
+.sync-dot[data-status="synced"] { background: var(--ok); }
+.sync-dot[data-status="offline"] { background: var(--muted); }
+.sync-dot[data-status="error"] { background: var(--danger); }
+@keyframes pulse { 50% { opacity: .35; } }
+
 /* ───────── Day tabs ───────── */
 #dayTabs {
   display: flex;

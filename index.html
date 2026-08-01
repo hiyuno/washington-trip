@@ -28,6 +28,7 @@
       </div>
     </div>
     <div class="topbar-actions">
+      <span id="syncStatus" class="sync-dot" data-status="off" title="Sincronización"></span>
       <button id="btnLock" class="icon-btn" title="Fijar el mapa en su sitio" aria-label="Fijar mapa">🔓</button>
       <button id="btnFit" class="icon-btn" title="Centrar en el día" aria-label="Centrar mapa">⤢</button>
       <button id="btnMenu" class="icon-btn" title="Ajustes" aria-label="Ajustes">⋯</button>
@@ -135,8 +136,25 @@
   </div>
 </div>
 
+<!-- ══ Sincronizar entre dispositivos ══ -->
+<div id="pinModal" class="modal" hidden>
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3>Sincronizar este viaje</h3>
+      <button class="icon-btn" data-close-modal="pinModal" aria-label="Cerrar">✕</button>
+    </div>
+    <p class="muted small">Escribe el PIN para que este dispositivo se mantenga al día con los demás. Solo se pide una vez.</p>
+    <input type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" id="pinInput" placeholder="PIN" maxlength="6">
+    <div class="modal-foot">
+      <button class="btn btn-ghost" data-close-modal="pinModal">Solo en este dispositivo</button>
+      <button id="btnUnlock" class="btn btn-primary">Entrar</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast" class="toast" hidden></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="vendor/leaflet.js"></script>
 <script src="plan.js"></script>
 <script src="app.js"></script>

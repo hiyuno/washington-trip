@@ -62,7 +62,126 @@ function save() {
   saveTimer = setTimeout(() => {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
     catch { toast('No se pudo guardar (almacenamiento lleno)'); }
+    scheduleSyncPush();
   }, 200);
+}
+
+// ───────────────────────────────────────── Sincronización entre dispositivos (Supabase)
+// Todo pasa primero por localStorage (arriba): esto solo empuja/recibe cambios en segundo
+// plano cuando hay señal. Sin conexión la app sigue funcionando exactamente igual que antes.
+const SUPABASE_URL = 'https://cfautipacbpznhqteamp.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_JCftklnxVe9QQPKB6BHicA_wdhq8yUQ';
+const TRIP_ID = 'washington-trip';
+const sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+
+let CLIENT_ID = localStorage.getItem('dctrip.clientId');
+if (!CLIENT_ID) {
+  CLIENT_ID = crypto.randomUUID ? crypto.randomUUID() : uid() + uid() + uid();
+  localStorage.setItem('dctrip.clientId', CLIENT_ID);
+}
+
+async function sha256Hex(text) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function setSyncStatus(status) {
+  const el = document.getElementById('syncStatus');
+  if (!el) return;
+  el.dataset.status = status;
+  el.title = {
+    off: 'Sincronización desactivada en este dispositivo',
+    syncing: 'Sincronizando…',
+    synced: 'Sincronizado con la nube',
+    offline: 'Sin conexión: se sincroniza al recuperar señal',
+    error: 'Error al sincronizar',
+  }[status] || '';
+}
+
+let syncPushTimer = null;
+let syncLastPushedJSON = null;
+let syncChannel = null;
+
+function scheduleSyncPush() {
+  if (!sb || localStorage.getItem('dctrip.unlocked') !== '1') return;
+  clearTimeout(syncPushTimer);
+  syncPushTimer = setTimeout(syncPush, 900);
+}
+
+async function syncPush() {
+  const json = JSON.stringify(state);
+  if (json === syncLastPushedJSON) return;
+  setSyncStatus('syncing');
+  try {
+    const { error } = await sb.from('trips')
+      .update({ data: state, client_id: CLIENT_ID, updated_at: new Date().toISOString() })
+      .eq('id', TRIP_ID);
+    if (error) throw error;
+    syncLastPushedJSON = json;
+    localStorage.setItem('dctrip.lastSyncedAt', new Date().toISOString());
+    setSyncStatus('synced');
+  } catch {
+    setSyncStatus(navigator.onLine ? 'error' : 'offline');
+  }
+}
+
+/** Adopta el itinerario que llega de otro dispositivo: reemplaza el estado local y repinta. */
+function applyRemoteState(remoteData) {
+  if (!remoteData || !Array.isArray(remoteData.days) || !remoteData.days.length) return;
+  state = remoteData;
+  if (!isSpecial() && !state.days.find(d => d.id === ui.dayId)) ui.dayId = state.days[0].id;
+  ui.routes = {};
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch { /* ignore */ }
+  syncLastPushedJSON = JSON.stringify(state);
+  render(true);
+}
+
+function subscribeRealtime() {
+  if (!sb || syncChannel) return;
+  syncChannel = sb.channel('trips-' + TRIP_ID)
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'trips', filter: `id=eq.${TRIP_ID}` },
+      (payload) => {
+        if (payload.new.client_id === CLIENT_ID) return; // es nuestro propio cambio, ya lo tenemos
+        applyRemoteState(payload.new.data);
+        toast('Itinerario actualizado desde otro dispositivo');
+      })
+    .subscribe();
+}
+
+async function unlockWithPin(pin) {
+  if (!sb) { toast('Sin conexión con la nube: se guarda solo en este dispositivo.'); return true; }
+  let hash;
+  try { hash = await sha256Hex(pin); } catch { toast('Este navegador no soporta la verificación segura del PIN.'); return false; }
+
+  const { data, error } = await sb.from('trips').select('data, pin_hash, updated_at').eq('id', TRIP_ID).maybeSingle();
+  if (error) { toast('No se pudo conectar: ' + error.message); return false; }
+  if (!data) { toast('No se encontró el viaje en la nube.'); return false; }
+  if (data.pin_hash !== hash) { toast('PIN incorrecto'); return false; }
+
+  localStorage.setItem('dctrip.unlocked', '1');
+  const localTs = localStorage.getItem('dctrip.lastSyncedAt');
+  const remoteNewer = data.data?.days?.length && (!localTs || new Date(data.updated_at) > new Date(localTs));
+  if (remoteNewer) applyRemoteState(data.data);
+  else { syncLastPushedJSON = null; syncPush(); }
+  subscribeRealtime();
+  return true;
+}
+
+/** Al abrir en un dispositivo ya desbloqueado: trae lo último sin volver a pedir el PIN. */
+async function syncOnStartup() {
+  if (!sb || localStorage.getItem('dctrip.unlocked') !== '1') return;
+  try {
+    const { data, error } = await sb.from('trips').select('data, updated_at').eq('id', TRIP_ID).maybeSingle();
+    if (error) throw error;
+    const localTs = localStorage.getItem('dctrip.lastSyncedAt');
+    if (data?.data?.days?.length && (!localTs || new Date(data.updated_at) > new Date(localTs))) {
+      applyRemoteState(data.data);
+    }
+    subscribeRealtime();
+    setSyncStatus('synced');
+  } catch {
+    setSyncStatus(navigator.onLine ? 'error' : 'offline');
+  }
 }
 
 const ALL = '__all__';                      // pseudo-día: la vista de todo el viaje
@@ -1362,9 +1481,20 @@ $('#searchInput').addEventListener('input', (e) => {
 $$('[data-close-modal]').forEach(b => b.onclick = () => closeModal(b.dataset.closeModal));
 $$('.modal').forEach(m => m.addEventListener('click', e => { if (e.target === m) m.hidden = true; }));
 
-window.addEventListener('online', () => { $('#offlineNote').hidden = true; render(); });
-window.addEventListener('offline', () => { $('#offlineNote').hidden = false; });
+window.addEventListener('online', () => { $('#offlineNote').hidden = true; render(); scheduleSyncPush(); });
+window.addEventListener('offline', () => { $('#offlineNote').hidden = false; setSyncStatus('offline'); });
 window.addEventListener('resize', () => map.invalidateSize());
+
+$('#btnUnlock').onclick = async () => {
+  const pin = $('#pinInput').value.trim();
+  if (!pin) return;
+  const btn = $('#btnUnlock');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+  const ok = await unlockWithPin(pin);
+  btn.disabled = false; btn.textContent = 'Entrar';
+  if (ok) { closeModal('pinModal'); $('#pinInput').value = ''; setSyncStatus('synced'); toast('Sincronizado'); }
+};
+$('#pinInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#btnUnlock').click(); });
 
 // ───────────────────────────────────────── Arranque
 initSheetDrag();
@@ -1373,6 +1503,15 @@ render(true);
 map.whenReady(() => setTimeout(() => map.invalidateSize(), 100));
 // El panel cambia de alto mientras se pinta el itinerario: se reencuadra una vez ya asentado.
 setTimeout(() => { if (!isSpecial()) fitTo(sequence(day()), ui.routes[day().id]); }, 400);
+
+// Sincronización: si ya se desbloqueó antes en este dispositivo, trae lo último sin
+// volver a pedir el PIN; si nunca se desbloqueó, ofrece hacerlo (se puede cerrar sin PIN).
+if (sb) {
+  if (localStorage.getItem('dctrip.unlocked') === '1') syncOnStartup();
+  else setTimeout(() => openModal('pinModal'), 500);
+} else {
+  setSyncStatus('off');
+}
 
 // Expuesto solo para depurar desde la consola.
 window.DCTrip = { map, render, get state() { return state; }, get ui() { return ui; } };
