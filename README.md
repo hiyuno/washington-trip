@@ -2,7 +2,7 @@
 
 Planificador de ruta para un viaje por el **estado de Washington** (5–10 de agosto de 2026):
 Olympic, Mount Rainier, North Cascades y Seattle.
-Web app de una sola página, sin build ni backend: se abre y funciona.
+Web app de una sola página, sin build: se abre y funciona.
 
 **En vivo:** https://hiyuno.github.io/washington-trip/
 
@@ -16,11 +16,20 @@ Web app de una sola página, sin build ni backend: se abre y funciona.
 - **Horarios estimados**: pones la hora de salida y la app calcula a qué hora llegas a cada parada y a qué hora vuelves a dormir.
 - **Optimizar**: reordena las paradas del día para minimizar el tiempo al volante, respetando el inicio y la dormida. Con deshacer.
 - **Exportar / importar JSON** para pasar el itinerario entre dispositivos.
+- **Sincronización en vivo** entre dispositivos (Supabase): un dispositivo nuevo pide un PIN
+  una sola vez y a partir de ahí queda al día en automático con los demás.
 
 ## Datos y privacidad
 
-Todo vive en el `localStorage` del navegador. No hay servidor, no se sube nada.
-Cada dispositivo tiene su propia copia: para pasar el itinerario del Mac al teléfono usa **Ajustes → Exportar** y luego **Importar**.
+Todo se guarda primero en el `localStorage` del navegador — eso no cambió. Cuando hay
+conexión, cada cambio también se empuja a una tabla en Supabase para que los demás
+dispositivos ya desbloqueados lo reciban en vivo, sin recargar.
+
+El PIN se verifica por hash (SHA-256) y nunca viaja ni se guarda en claro, pero no es
+seguridad real: es solo una traba para que nadie que encuentre la URL pública edite el
+viaje sin querer. Sin conexión con Supabase (o si nunca se desbloqueó el dispositivo),
+la app funciona exactamente igual que antes: todo por `localStorage`, sin sincronizar.
+Usa **Ajustes → Exportar** y luego **Importar** si prefieres pasar el itinerario a mano.
 
 ## Sin conexión
 
@@ -53,6 +62,7 @@ no funcionan abriendo el archivo con `file://`.)
 | Mapa | OpenStreetMap tiles | sin API key |
 | Búsqueda de lugares | Nominatim | sin API key, límite de 1 consulta/segundo |
 | Rutas y matriz de tiempos | OSRM demo server | sin API key, perfil `driving` |
+| Sincronización | Supabase (plan gratis) | clave pública en el código a propósito, protegida por PIN + RLS |
 
 **Ferris:** OSRM calcula las rutas por carretera y no cuenta el ferry Edmonds–Kingston.
 El día 3 el tiempo real es cerca de 1 h menor si lo tomas — pero no admite reserva de
