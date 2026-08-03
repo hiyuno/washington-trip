@@ -507,6 +507,16 @@ function renderTabs() {
   $('#tripDates').textContent = `${a.short} – ${z.short}`;
 }
 
+/** Abre la navegación en Google Maps hacia un lugar (usa la ubicación actual como origen). */
+function openInGoogleMaps(place) {
+  const url = `https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lon}&travelmode=driving`;
+  window.open(url, '_blank', 'noopener');
+}
+const navBtnHtml = '<button type="button" class="nav-btn" aria-label="Ir en Google Maps" title="Ir en Google Maps">🚗</button>';
+function wireNavBtn(li, place) {
+  li.querySelector('.nav-btn').onclick = (ev) => { ev.stopPropagation(); openInGoogleMaps(place); };
+}
+
 function anchorRow(kind, place, timeStr, d) {
   const li = document.createElement('li');
   li.className = 'item anchor' + (kind === 'end' ? ' end-anchor' : '');
@@ -532,6 +542,7 @@ function anchorRow(kind, place, timeStr, d) {
       </div>
       <div class="time">${timeStr || ''}</div>
       ${useBtn}
+      ${navBtnHtml}
       <button type="button" class="unstar-btn" data-act="clear-anchor" aria-label="Dejar sin definir" title="Dejar sin definir">✕</button>
       <button class="set-btn" data-act="edit-anchor">Cambiar</button>`;
   } else {
@@ -542,6 +553,7 @@ function anchorRow(kind, place, timeStr, d) {
       ${useBtn}
       <button class="set-btn" data-act="edit-anchor">Definir</button>`;
   }
+  if (place) wireNavBtn(li, place);
   li.querySelector('[data-act=edit-anchor]').onclick = () => openSearch(kind);
   li.querySelector('[data-act=use-prev]')?.addEventListener('click', () => {
     d.start = { ...prevEnd, id: uid() };
@@ -653,8 +665,10 @@ function stopRow(node, d, prevName) {
     <div class="time">${node.arrive != null ? fmtClock(node.arrive) : ''}</div>
     <button type="button" class="expand-btn" aria-label="Ver detalles del traslado" title="Ver detalles">⌄</button>
     <button type="button" class="unstar-btn" aria-label="Eliminar parada" title="Eliminar">✕</button>
+    ${navBtnHtml}
     <div class="grip" title="Arrastra para reordenar">⣿</div>
     <div class="stop-details" ${expanded ? '' : 'hidden'}>${detailBlock(node, prevName)}</div>`;
+  wireNavBtn(li, s);
   li.querySelector('.body').onclick = () => openStopEditor(s.id);
   li.querySelector('.idx').onclick = () => {
     map.setView([s.lat, s.lon], 16);
@@ -777,8 +791,10 @@ function renderStars(fitMap) {
       </div>
       <button type="button" class="expand-btn" aria-label="Ver detalles del traslado" title="Ver detalles">⌄</button>
       <button type="button" class="unstar-btn" aria-label="Quitar de Top" title="Quitar de Top (sigue en su día)">✕</button>
+      ${navBtnHtml}
       <button class="set-btn" data-goto="${x.day.id}">Ver día →</button>
       <div class="stop-details" ${expanded ? '' : 'hidden'}>${starDetailBlock(x)}</div>`;
+    wireNavBtn(li, x.place);
     li.onclick = () => {                      // tocar la fila: centrar el mapa en ese sitio
       map.setView([x.place.lat, x.place.lon], 13);
       if (window.innerWidth < 900) setSheet('collapsed');
