@@ -102,11 +102,19 @@ html, body {
   line-height: 1.2;
   cursor: pointer;
   text-align: center;
-  touch-action: pan-y;
   user-select: none;
   -webkit-user-select: none;
+  transition: transform .12s ease;
 }
-.day-tab[data-day-id] { cursor: grab; }
+/* Los días se pueden arrastrar: el scroll de la barra se maneja a mano en JS (ver
+   attachDayDrag), así que aquí se apaga el gesto nativo del navegador para que no
+   compita con el nuestro. "Todo" y "Top" no se arrastran, dejan el scroll nativo. */
+.day-tab[data-day-id] { cursor: grab; touch-action: none; }
+.day-tab.armed { transform: scale(.94); }
+/* Mientras se arrastra de verdad, el translateX tiene que aplicarse al instante: el
+   algoritmo de reordenar lee getBoundingClientRect() en el mismo tick, y con transición
+   leería la posición vieja (a medio animar) en vez de la nueva. */
+.day-tab.dragging { transition: none; }
 .day-tab b { display: block; color: var(--text); font-size: 13px; font-weight: 600; }
 .day-tab small { font-size: 11px; opacity: .8; }
 .day-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }

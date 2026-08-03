@@ -969,29 +969,64 @@ function applyDayOrder(orderIds) {
   return true;
 }
 
+const DAY_DRAG_HOLD_MS = 320;   // cuánto hay que mantener presionado antes de que la ficha se levante
+const DAY_DRAG_SLOP_PX = 10;    // moverse más que esto antes de tiempo se toma como "quiero deslizar la barra"
+
 function attachDayDrag(b) {
   b.addEventListener('pointerdown', (ev) => {
     if (ev.button != null && ev.button !== 0) return;
+    const isTouch = ev.pointerType === 'touch';
     const tabs = $('#dayTabs');
     const dayId = b.dataset.dayId;
     const pid = ev.pointerId;
-    let startX = ev.clientX;
+    let startX = ev.clientX, startY = ev.clientY;
+    let scrollStart = tabs.scrollLeft;
     let dragging = false;
+    let scrolling = false;   // el dedo se movió antes de levantar la ficha: es scroll de la barra, no arrastre
+    let holdTimer = null;
 
     const dayTabs = () => $$('.day-tab[data-day-id]', tabs);
+
+    const beginDrag = () => {
+      dragging = true;
+      b.classList.remove('armed');
+      tabs.classList.add('dragging-mode');
+      b.classList.add('dragging');
+      try { b.setPointerCapture(pid); } catch { /* ignore */ }
+      if (isTouch && navigator.vibrate) navigator.vibrate(10); // golpecito háptico al "levantar" la ficha
+    };
+
+    // En pantalla táctil no se puede distinguir de entrada "desliza la barra" de "arrastra la
+    // ficha" — ambos empiezan igual. Se pide mantener presionado un momento, como reordenar
+    // iconos en iOS: si en ese momento el dedo se mueve, era scroll y se cancela el arrastre.
+    if (isTouch) {
+      b.classList.add('armed');
+      holdTimer = setTimeout(beginDrag, DAY_DRAG_HOLD_MS);
+    }
 
     const move = (e) => {
       if (e.pointerId !== pid) return;
       const dx = e.clientX - startX;
+
       if (!dragging) {
-        if (Math.abs(dx) < 8) return;
-        dragging = true;
-        tabs.classList.add('dragging-mode');
-        b.classList.add('dragging');
-        try { b.setPointerCapture(pid); } catch { /* ignore */ }
+        if (!isTouch) {
+          if (Math.abs(dx) < 8) return;
+          beginDrag();
+        } else {
+          if (!scrolling && Math.hypot(dx, e.clientY - startY) > DAY_DRAG_SLOP_PX) {
+            scrolling = true;
+            b.classList.remove('armed');
+            clearTimeout(holdTimer);
+          }
+          // El navegador no puede hacer scroll nativo aquí (touch-action:none en la ficha,
+          // justo para evitar la pelea con este mismo gesto), así que el scroll se hace a mano.
+          if (scrolling) tabs.scrollLeft = scrollStart - dx;
+          return;
+        }
       }
+
       e.preventDefault();
-      b.style.transform = `translateX(${e.clientX - startX}px)`;
+      b.style.transform = `translateX(${dx}px)`;
 
       for (let pass = 0; pass < 20; pass++) {
         const r = b.getBoundingClientRect();
@@ -1017,17 +1052,17 @@ function attachDayDrag(b) {
     };
 
     const up = (e) => {
+      clearTimeout(holdTimer);
       if (e && e.pointerId !== undefined && e.pointerId !== pid) return;
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
       window.removeEventListener('pointercancel', up);
       b.style.transform = '';
-      b.classList.remove('dragging');
+      b.classList.remove('dragging', 'armed');
       tabs.classList.remove('dragging-mode');
 
       if (!dragging) {
-        ui.dayId = dayId;
-        render(true);
+        if (!scrolling) { ui.dayId = dayId; render(true); }
         return;
       }
 
