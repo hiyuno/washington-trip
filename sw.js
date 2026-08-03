@@ -1,11 +1,13 @@
 /* Service worker: deja la app usable sin conexión.
  * - App shell: red primero, caché como respaldo (para que las versiones nuevas lleguen siempre).
- * - Mosaicos del mapa: cache-first con tope de tamaño (solo los que ya viste).
+ * - Mosaicos del mapa y fotos de Wikipedia: cache-first con tope de tamaño (solo lo que ya viste).
  * - Nominatim / OSRM: sin interceptar, necesitan red por definición.
  */
-const SHELL_CACHE = 'watrip-shell-v22';
+const SHELL_CACHE = 'watrip-shell-v23';
 const TILE_CACHE  = 'watrip-tiles-v1';
+const IMAGE_CACHE = 'watrip-images-v1';
 const MAX_TILES   = 800;
+const MAX_IMAGES  = 150; // las fotos pesan más que un mosaico, tope más chico
 
 const SHELL = [
   './', './index.html', './styles.css', './app.js', './plan.js',
@@ -26,7 +28,7 @@ self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys()
       .then(keys => Promise.all(
-        keys.filter(k => k !== SHELL_CACHE && k !== TILE_CACHE).map(k => caches.delete(k))
+        keys.filter(k => k !== SHELL_CACHE && k !== TILE_CACHE && k !== IMAGE_CACHE).map(k => caches.delete(k))
       ))
       .then(() => self.clients.claim())
   );
@@ -37,6 +39,13 @@ async function trimTiles() {
   const keys = await cache.keys();
   if (keys.length <= MAX_TILES) return;
   await Promise.all(keys.slice(0, keys.length - MAX_TILES).map(k => cache.delete(k)));
+}
+
+async function trimImages() {
+  const cache = await caches.open(IMAGE_CACHE);
+  const keys = await cache.keys();
+  if (keys.length <= MAX_IMAGES) return;
+  await Promise.all(keys.slice(0, keys.length - MAX_IMAGES).map(k => cache.delete(k)));
 }
 
 self.addEventListener('fetch', (event) => {
@@ -55,6 +64,26 @@ self.addEventListener('fetch', (event) => {
         if (res && (res.ok || res.type === 'opaque')) {
           cache.put(request, res.clone());
           trimTiles();
+        }
+        return res;
+      } catch {
+        return new Response('', { status: 504, statusText: 'sin conexión' });
+      }
+    })());
+    return;
+  }
+
+  // Fotos de Wikipedia (miniaturas de cada lugar)
+  if (/(^|\.)upload\.wikimedia\.org$/.test(url.hostname)) {
+    event.respondWith((async () => {
+      const cache = await caches.open(IMAGE_CACHE);
+      const hit = await cache.match(request);
+      if (hit) return hit;
+      try {
+        const res = await fetch(request);
+        if (res && (res.ok || res.type === 'opaque')) {
+          cache.put(request, res.clone());
+          trimImages();
         }
         return res;
       } catch {

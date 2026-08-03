@@ -320,6 +320,10 @@ html, body {
 .stop-details[hidden] { display: none; }
 .stop-details .detail-notes { color: var(--text); white-space: pre-wrap; }
 .stop-details .detail-best { color: var(--star); font-weight: 600; }
+.stop-details .detail-img img {
+  display: block; width: 100%; max-height: 140px; object-fit: cover;
+  border-radius: 10px; margin: 2px 0;
+}
 .stop-details .detail-hint { opacity: .6; font-size: 11.5px; }
 
 .leg {
@@ -374,7 +378,11 @@ html, body {
   padding: 0;
 }
 .modal[hidden] { display: none; }
-.toast[hidden], .offline-note[hidden], #btnUndo[hidden] { display: none; }
+.toast[hidden], .offline-note[hidden], #btnUndo[hidden], .stop-modal-img[hidden] { display: none; }
+.stop-modal-img {
+  width: 100%; max-height: 160px; object-fit: cover;
+  border-radius: var(--radius); margin-bottom: 4px; display: block;
+}
 .modal-card {
   width: 100%; max-width: 560px;
   background: var(--panel);

@@ -319,6 +319,49 @@ function toPlace(r) {
   };
 }
 
+// ───────────────────────────────────────── Fotos (Wikipedia)
+// Campo `image` en cada lugar, con tres estados: ausente = nunca se buscó,
+// '' = se buscó y no hay artículo, url = resuelto. Así no se reintenta sin parar
+// para los lugares que sencillamente no tienen foto.
+const WIKI_SUMMARY = 'https://en.wikipedia.org/api/rest_v1/page/summary/';
+const wikiInFlight = new Set();
+
+async function lookupImage(place) {
+  if ('image' in place) return;
+  if (wikiInFlight.has(place.id)) return;
+  if (!navigator.onLine) return;
+
+  wikiInFlight.add(place.id);
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 6000);
+    let url = '';
+    try {
+      const res = await fetch(WIKI_SUMMARY + encodeURIComponent(place.name), { signal: ctrl.signal });
+      if (res.ok) { const data = await res.json(); url = data?.thumbnail?.source || ''; }
+    } finally {
+      clearTimeout(t);
+    }
+    place.image = url;
+    save();
+    render(false); // repinta lo que esté visible ahora (día, Top o Todo)
+  } catch {
+    // error de red / abortado / se fue la señal a mitad: no se marca `image`, para
+    // poder reintentar después — no es lo mismo que "sin artículo en Wikipedia".
+  } finally {
+    wikiInFlight.delete(place.id);
+  }
+}
+
+/** Al arrancar, busca la foto de unos pocos lugares que todavía no la tienen (plan
+ * sugerido o lugares agregados antes de esta función existir). Un poco por carga. */
+function backfillImages() {
+  if (!navigator.onLine) return;
+  const pending = [];
+  state.days.forEach(d => d.stops.forEach(s => { if (!('image' in s)) pending.push(s); }));
+  pending.slice(0, 4).forEach((s, i) => setTimeout(() => lookupImage(s), i * 1500));
+}
+
 // ───────────────────────────────────────── Mapa
 const map = L.map('map', { zoomControl: true, attributionControl: true, fadeAnimation: false }).setView(WA_CENTER, 13);
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -581,6 +624,7 @@ function detailBlock(node, prevName, hint = 'Toca ✕ o haz clic derecho en la f
     parts.push(`<div>🕐 De ${fmtClock(node.arrive)} a ${fmtClock(node.depart ?? node.arrive)}</div>`);
   }
   if (node.place.best) parts.push(`<div class="detail-best">⏰ Mejor hora: ${escapeHtml(node.place.best)}</div>`);
+  if (node.place.image) parts.push(`<div class="detail-img"><img src="${escapeHtml(node.place.image)}" alt="" loading="lazy" onerror="this.parentElement.remove()"></div>`);
   if (node.place.notes) parts.push(`<div class="detail-notes">📝 ${escapeHtml(node.place.notes)}</div>`);
   if (hint) parts.push(`<div class="detail-hint">${hint}</div>`);
   return parts.join('');
@@ -751,8 +795,9 @@ function starDetailBlock(x) {
   const prevName = i > 0 ? nodes[i - 1].place.name : null;
   if (!node) {
     const best = x.place.best ? `<div class="detail-best">⏰ Mejor hora: ${escapeHtml(x.place.best)}</div>` : '';
+    const img = x.place.image ? `<div class="detail-img"><img src="${escapeHtml(x.place.image)}" alt="" loading="lazy" onerror="this.parentElement.remove()"></div>` : '';
     return `<div>🚗 traslado sin calcular todavía</div><div>⏱ Te quedas ${fmtDur((x.place.duration || 0) * 60)} aquí</div>` +
-           best + `<div class="detail-hint">${hint}</div>`;
+           best + img + `<div class="detail-hint">${hint}</div>`;
   }
   return detailBlock(node, prevName, hint);
 }
@@ -1297,6 +1342,7 @@ function acceptPlace(p) {
   closeModal('searchModal');
   render(true);
   toast(`${p.name} agregado`);
+  if (ui.searchTarget !== 'start' && ui.searchTarget !== 'end') lookupImage(p);
 }
 
 // ───────────────────────────────────────── Editor de parada
@@ -1310,6 +1356,8 @@ function openStopEditor(id) {
   $('#stopDuration').value = s.duration ?? 60;
   $('#stopStar').checked = !!s.star;
   $('#stopNotes').value = s.notes || '';
+  const img = $('#stopModalImage');
+  if (s.image) { img.src = s.image; img.hidden = false; } else { img.hidden = true; img.removeAttribute('src'); }
   const sel = $('#stopMoveDay');
   sel.innerHTML = '';
   state.days.forEach((dd, i) => {
@@ -1327,7 +1375,9 @@ function saveStopEditor() {
   const d = day();
   const s = d.stops.find(x => x.id === ui.editingStopId);
   if (!s) return closeModal('stopModal');
-  s.name = $('#stopName').value.trim() || s.name;
+  const newName = $('#stopName').value.trim() || s.name;
+  if (newName !== s.name) delete s.image; // el nombre cambió: la foto vieja ya no aplica
+  s.name = newName;
   s.duration = Math.max(0, parseInt($('#stopDuration').value, 10) || 0);
   s.star = $('#stopStar').checked;
   s.notes = $('#stopNotes').value.trim();
@@ -1340,6 +1390,7 @@ function saveStopEditor() {
   save();
   closeModal('stopModal');
   render();
+  lookupImage(s);
 }
 
 function deleteStop() {
@@ -1563,6 +1614,8 @@ if (sb) {
 } else {
   setSyncStatus('off');
 }
+
+setTimeout(backfillImages, 1200); // deja que rutas/mosaicos vayan primero
 
 // Expuesto solo para depurar desde la consola.
 window.DCTrip = { map, render, get state() { return state; }, get ui() { return ui; } };
